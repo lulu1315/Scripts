@@ -4,10 +4,12 @@ use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
 use Image::Magick;
-use constant PI => (4 * atan2 (1, 1));
 #http://www.imagemagick.org/script/command-line-options.php
+$HOSTNAME=`cat /etc/hostname`;chop $HOSTNAME;
+$KDEVERSION=`lsb_release -c -s`;chop $KDEVERSION;
+$GPUS=`nvidia-smi -L | wc -l`;chop $GPUS;
+$GPUTYPE=`nvidia-smi -q -i 0 | grep "Product Name" | cut -d':' -f2 | cut -c 2-`;chop $GPUTYPE;
 $script = $0;
-print BOLD BLUE "script : $script\n";print RESET;
 @tmp=split(/\//,$script);
 $scriptname=$tmp[$#tmp];
 @tmp=split(/\./,$scriptname);
@@ -16,11 +18,19 @@ $CWD=getcwd;
 #get project name
 @tmp=split(/\//,$CWD);
 $PROJECT=$tmp[$#tmp];
+$userName =  $ENV{'USER'}; 
+print BOLD BLUE "----------------------\n";print RESET;
+print BOLD BLUE "user    : $userName\n";print RESET;
+print BOLD BLUE "host    : $HOSTNAME\n";print RESET;
+print BOLD BLUE "kde     : $KDEVERSION\n";print RESET;
+print BOLD BLUE "gpu     : $GPUTYPE (x$GPUS)\n";print RESET;
+print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
+print BOLD BLUE "----------------------\n";print RESET;
 
 #defaults
-$FSTART=1;
-$FEND=100;
+$FSTART="auto";
+$FEND="auto";
 $SHOT="";
 $INDIR="$CWD/originales";
 $IN="ima";
@@ -177,13 +187,13 @@ print AUTOCONF "#slic parameters\n";
 print AUTOCONF "#ccs parameters\n";
 print AUTOCONF "#crs parameters\n";
 print AUTOCONF confstr(CLIQUECOST);
-print AUTOCONF "#cw parameters\n";
+print AUTOCONF "#cw parameters  !! doesn't build on 18.04\n";
 print AUTOCONF "#ergc parameters\n";
 print AUTOCONF "#ers parameters\n";
 print AUTOCONF confstr(ERS_LAMBDA);
 print AUTOCONF confstr(ERS_SIGMA);
 print AUTOCONF confstr(ERS_8CONNECTED);
-print AUTOCONF "#etps parameters\n";
+print AUTOCONF "#etps parameters !! doesn't build on 18.04\n";
 print AUTOCONF confstr(ETPS_REGULARIZATIONWEIGHT);
 print AUTOCONF confstr(ETPS_LENGTHWEIGHT);
 print AUTOCONF confstr(ETPS_SIZEWEIGHT);
@@ -269,7 +279,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $CONF=@ARGV[$arg+1];
     print "using conf file $CONF\n";
-    require $CONF;
+    require "./$CONF";
     if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
     else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
@@ -339,9 +349,48 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
   $POTRACE="/usr/bin/potrace";
   }
   
+if ($userName eq "dev18")	#
+  {
+  $GMIC="/usr/bin/gmic";
+  $SUPERPIX="/shared/foss-18/superpixel-benchmark/bin";
+  $SLIC="/shared/foss-18/superpixels-revisited/bin/slic_cli";
+  $PINKBIN="/shared/foss-18/Pink/linux/bin";
+  $POTRACE="/usr/bin/potrace";
+  }
+  
 if ($VERBOSE) {$LOG1="";$LOG2="";}
 
 sub csv {
+
+#auto frames
+if ($FSTART eq "auto" || $FEND eq "auto")
+    {
+    if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
+    print ("frames $FSTART $FEND dir $AUTODIR\n");
+    opendir DIR, "$AUTODIR";
+    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    closedir DIR;
+    $min=9999999;
+    $max=-1;
+    foreach $ima (@images) 
+        { 
+        #print ("$ima\n");
+        @tmp=split(/\./,$ima);
+        if ($#tmp >= 2)
+            {
+            $numframe=int($tmp[$#tmp-1]);
+            #print ("$numframe\n");
+            if ($numframe > $max) {$max = $numframe;}
+            if ($numframe < $min) {$min = $numframe;}
+            }
+        }
+    
+    if ($FSTART eq "auto") {$FSTART = $min;}
+    if ($FEND   eq "auto") {$FEND   = $max;}
+    print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
 for ($i = $FSTART ;$i <= $FEND;$i++)
 {
 $ii=sprintf("%04d",$i);

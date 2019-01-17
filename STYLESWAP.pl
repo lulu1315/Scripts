@@ -283,7 +283,8 @@ if ($userName eq "dev18")	#
   $CPU=0;
   $GMIC="/usr/bin/gmic";
   $LUA="/shared/foss-18/style-swap/style-swap.lua";
-  $TH="/shared/foss-18/torch/install/bin/th";
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
   $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";

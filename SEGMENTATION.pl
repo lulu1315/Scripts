@@ -36,15 +36,30 @@ $OUT_USE_SHOT=0;
 $SHOT="";
 $INDIR="$CWD/originales";
 $IN="ima";
-$OUTDIR="$CWD/colorletthere";
+$OUTDIR="$CWD/$scriptname";
 $OUT="ima";
-$ZEROPAD=1;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
-$NETWORKSIZE=224;
-$CLEAN=1;
-$LOG="2>/var/tmp/letthere.log";
+#preprocess
+$SIZE=0;
+$DOLOCALCONTRAST=0;
+$ROLLING=2;
+$BRIGHTNESS=0;
+$CONTRAST=0;
+$GAMMA=0;
+$SATURATION=0;
+#process params
+$DOPREPAREDATA=1;
+$DOOPTICALFLOW=1;
+$DOSEGMENTATION=1;
+#segmentation params
+$FLOWWEIGHT=.2;
+$TRESHOLD=.02;
+$HIERARCHIES=40;
+
+$LOG1=">/var/tmp/$scriptname.log";
+$LOG2="2>/var/tmp/$scriptname.log";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -67,7 +82,7 @@ sub confstr {
   }
   
 sub autoconf {
-open (AUTOCONF,">","colorletthere_auto.conf");
+open (AUTOCONF,">","$scriptname\_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
@@ -78,12 +93,26 @@ print AUTOCONF confstr(INDIR);
 print AUTOCONF confstr(IN);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUT);
-print AUTOCONF confstr(ZEROPAD);
+print AUTOCONF "#preprocess\n";
+print AUTOCONF confstr(SIZE);
+print AUTOCONF confstr(DOLOCALCONTRAST);
+print AUTOCONF confstr(ROLLING);
+print AUTOCONF confstr(BRIGHTNESS);
+print AUTOCONF confstr(CONTRAST);
+print AUTOCONF confstr(GAMMA);
+print AUTOCONF confstr(SATURATION);
+print AUTOCONF "#process\n";
+print AUTOCONF confstr(DOPREPAREDATA);
+print AUTOCONF confstr(DOOPTICALFLOW);
+print AUTOCONF confstr(DOSEGMENTATION);
+print AUTOCONF "#segmentation\n";
+print AUTOCONF confstr(HIERARCHIES);
+print AUTOCONF confstr(FLOWWEIGHT);
+print AUTOCONF confstr(TRESHOLD);
+print AUTOCONF "#misc\n";
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
-print AUTOCONF confstr(NETWORKSIZE);
-print AUTOCONF confstr(CLEAN);
 print AUTOCONF "1\n";
 }
 
@@ -95,9 +124,9 @@ if ($#ARGV == -1) {
       print "-odir dirout\n";
       print "-o imageout\n";
       print "-e image ext (png)\n";
-      print "-zeropad4\n";
+      print "-size process xsize\n";
+      print "-h hierarchies [40]\n";
       print "-force\n";
-      print "-networksize [224]\n";
       exit;
 }
 
@@ -105,10 +134,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   {
   if (@ARGV[$arg] eq "-autoconf")
     {
-    print "writing auto.conf : mv colorletthere_auto.conf colorletthere.conf\n";
+    print "mv $scriptname\_auto.conf $scriptname.conf\n";
     autoconf();
-    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-    else {$cmd="mkdir $OUTDIR";system $cmd;}
     exit;
     }
   if (@ARGV[$arg] eq "-conf")
@@ -116,6 +143,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $CONF=@ARGV[$arg+1];
     print "using conf file $CONF\n";
     require "./$CONF";
+    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
+    else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
   if (@ARGV[$arg] eq "-f")
     {
@@ -143,10 +172,15 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $OUT=@ARGV[$arg+1];
     print "image out : $OUT\n";
     }
-  if (@ARGV[$arg] eq "-zeropad4")
+  if (@ARGV[$arg] eq "-h")
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $HIERARCHIES=@ARGV[$arg+1];
+    print "hierarchies : $HIERARCHIES\n";
+    }
+ if (@ARGV[$arg] eq "-size")
+    {
+    $SIZE=@ARGV[$arg+1];
+    print "process xsize : $SIZE\n";
     }
  if (@ARGV[$arg] eq "-force")
     {
@@ -159,30 +193,15 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $LOG="";
     print "force output ...\n";
     }
-  if (@ARGV[$arg] eq "-networksize") 
-    {
-    $NETWORKSIZE=@ARGV[$arg+1];
-    print "networksize : $NETWORKSIZE\n";
-    }
-  }
-
-$userName =  $ENV{'USER'}; 
-if ($userName eq "dev" || $userName eq "render")	#
-  {
-  $GMIC="/usr/bin/gmic";
-  $TH="/shared/foss/torch-multi/install/bin/th";
-  $LUA="/shared/foss/siggraph2016_colorization/colorize.lua";
-  $MODEL="/shared/foss/siggraph2016_colorization/colornet.t7";
   }
   
 if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
-  $TH="/shared/foss-18/torch/install/bin/th";
-  $LUA="/shared/foss/siggraph2016_colorization/colorize.lua";
-  $MODEL="/shared/foss/siggraph2016_colorization/colornet.t7";
+  $OFLOW_CLI="/shared/foss-18/hierarchical-graph-based-video-segmentation/build/optical_flow_cli/optical_flow_cli";
+  $SEGMENT_CLI="/shared/foss-18/hierarchical-graph-based-video-segmentation/build/segment_cli/segment_cli";
   }
-
+  
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
@@ -211,119 +230,65 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("auto  seq : $min $max\n");
     print ("final seq : $FSTART $FEND\n");
     }
+
+#shot directories
+if ($IN_USE_SHOT) {$IINDIR="$INDIR/$SHOT";}
+else {$IINDIR="$INDIR/$SHOT";}
     
-for ($i = $FSTART ;$i <= $FEND;$i++)
+if ($OUT_USE_SHOT) {$OOUTDIR="$OUTDIR/$SHOT";
+    if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
+    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    }
+else {$OOUTDIR="$OUTDIR";}
+    
+$DATADIR="$OOUTDIR/originales";
+if ($DOPREPAREDATA)
 {
-$ii=sprintf("%04d",$i);
-#preprocess
-if ($IN_USE_SHOT)
-    {
-    $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
-    }
-else
-    {
-    $IIN="$INDIR/$IN.$ii.$EXT";
-    }
 
-if ($OUT_USE_SHOT)
-    {
-    $OOUTDIR="$OUTDIR/$SHOT";
-    }
-else
-    {
-    $OOUTDIR=$OUTDIR;
-    }
-    
-if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-else {$cmd="mkdir $OUTDIR";system $cmd;}
-if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
-else {$cmd="mkdir $OOUTDIR";system $cmd;}
-$OOUT="$OOUTDIR/$OUT.$ii.$EXT";
+if (-e "$DATADIR") {verbose("$DATADIR already exists");}
+else {$cmd="mkdir $DATADIR";system $cmd;}
 
-$WORKDIR="$OOUTDIR/w$ii";
-$NETWORK="$WORKDIR/network.$ii.$EXT";
-$COLORIMA="$WORKDIR/color.$ii.$EXT";
-
-if (-e $OOUT && !$FORCE)
-{print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
-else
-  {
-  #touch file
-  $touchcmd="touch $OOUT";
-  verbose($touchcmd);
-  system $touchcmd;
-  print BOLD YELLOW "processing frame $ii\n";print RESET;
-  if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
-  #-----------------------------#
-  ($s1,$m1,$h1)=localtime(time);
-  #-----------------------------#
-  $resizecmd="$GMIC -i $IIN -resize2dx $NETWORKSIZE,5 -o $NETWORK $LOG";system $resizecmd;
-  $colorcmd="$TH $LUA $NETWORK $COLORIMA $MODEL";verbose($colorcmd);system $colorcmd;
-  $combinecmd="$GMIC -i $IIN $COLORIMA \\
-    -rgb2yuv8[1] -resize[1] [0],5 \\
-    -channels[0] 0 -channels[1] 1,2 \\
-    -split[1] c -append c -yuv82rgb -o $OOUT $LOG";system $combinecmd;
-  if ($CLEAN)
+for ($i = $FSTART ;$i <= $FEND;$i++)
     {
-    $cleancmd="rm -r $WORKDIR";
-    verbose($cleancmd);
-    system $cleancmd;
+    $ii=sprintf("%04d",$i);
+    if ($DOLOCALCONTRAST) 
+        {$GMIC1="-fx_LCE[0] 80,0.5,1,1,0,0";} 
+    else {$GMIC1="";}
+    if ($ROLLING) 
+        {$GMIC2="-fx_sharp_abstract $ROLLING,10,0.5,0,0";} 
+    else {$GMIC2="";}
+    if ($BRIGHTNESS || $CONTRAST || $GAMMA || $SATURATION) 
+        {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} 
+    else {$GMIC3="";}
+    if ($SIZE) 
+        {$GMIC4="-resize2dx $SIZE,5";} 
+  $cmd="$GMIC -i $IINDIR/$IN.$ii.$EXT $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $DATADIR/$IN.$ii.$EXT $LOG2";
+  verbose($cmd);
+  print BOLD YELLOW "frame : $i ";print RESET;
+  print("-> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
+  system $cmd;
     }
-  #-----------------------------#
-  ($s2,$m2,$h2)=localtime(time);
-  ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-  print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat !\n\n";print RESET;
-  #-----------------------------#
-  }
-}
+}#end preparedata
 
-#-------------------------------------------------------#
-#---------gestion des timecodes ------------------------#
-#-------------------------------------------------------#
-sub hmstoglob {
-my ($s,$m,$h) = @_;
-my $glob;
-#
-$glob=$s+60*$m+3600*$h;
-return $glob;
-}
-sub globtohms {
-my ($glob) = @_;
-my $floath=$glob/3600;
-my $h=int($floath);
-#
-my $reste=$glob-3600*$h;
-my $floatm=$reste/60;
-my $m=int($floatm);
-#
-my $s=$glob-3600*$h-60*$m;
-#
-return ($s,$m,$h);
-}
-sub timeplus  {
-#($s,$m,$h)=timeplus($s1,$m1,$h1,$s2,$m2,$h2)
-      my ($s1,$m1,$h1,$s2,$m2,$h2) = @_;
-      $glob1=hmstoglob($s1,$m1,$h1);
-      $glob2=hmstoglob($s2,$m2,$h2);
-      $glob=$glob1+$glob2;
-      ($s,$m,$h) =globtohms($glob);
-      return ($s,$m,$h);
-}
-sub lapse  {
-#($s,$m,$h)=lapse($s1,$m1,$h1,$s2,$m2,$h2)
-      my ($s1,$m1,$h1,$s2,$m2,$h2) = @_;
-      $glob1=hmstoglob($s1,$m1,$h1);
-      $glob2=hmstoglob($s2,$m2,$h2);
-      if ($glob1 > $glob2)
-              {
-              $glob1=86400-$glob1;
-              $glob=$glob2+$glob1;
-              }
-              else
-              {
-              $glob=$glob2-$glob1;
-              }
-#     print "$glob1 $glob2 $glob \n";
-      my ($s,$m,$h) =globtohms($glob);
-      return ($s,$m,$h);
+$FLOWDIR="$OOUTDIR/flow";
+if ($DOOPTICALFLOW)
+{
+
+if (-e "$FLOWDIR") {verbose("$FLOWDIR already exists");}
+else {$cmd="mkdir $FLOWDIR";system $cmd;}
+$cmd="$OFLOW_CLI --input-dir $DATADIR --output-dir $FLOWDIR";
+verbose($cmd);
+print BOLD YELLOW ("------------> processing opticalflow\n");print RESET;
+system $cmd;
+}#end doopticalflow
+
+$VISDIR="$OOUTDIR/vis";
+$SEGDIR="$OOUTDIR/segment";
+if ($DOSEGMENTATION)
+{
+$LENGTH=$FEND-2;
+$cmd="$SEGMENT_CLI --input-video $DATADIR --input-flow $FLOWDIR --length $LENGTH --flow-weight $FLOWWEIGHT --threshold $TRESHOLD --hierarchies $HIERARCHIES --vis-dir $VISDIR --output-dir $SEGDIR";
+verbose($cmd);
+print BOLD YELLOW ("------------> processing segmentation\n");print RESET;
+system $cmd;
 }

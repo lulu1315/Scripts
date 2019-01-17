@@ -277,7 +277,8 @@ if ($userName eq "dev18") #
   $LUA="/shared/foss-18/artistic-videos/artistic_video_dev.lua";
   $LIGHTLUA="/shared/foss-18/artistic-videos/artistic_video_light.lua";
   $MULTILUA="/shared/foss-18/artistic-videos/artistic_video_multiPass_dev.lua";
-  $TH="/shared/foss-18/torch/install/bin/th";
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
   $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";

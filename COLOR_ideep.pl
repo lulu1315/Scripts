@@ -47,7 +47,7 @@ $EXTOUT="png";
 #preprocess
 $SIZE=0;
 $DOLOCALCONTRAST=0;
-$ROLLING=2;
+$ROLLING=0;
 $BRIGHTNESS=0;
 $CONTRAST=0;
 $GAMMA=0;
@@ -257,7 +257,7 @@ if ($userName eq "lulu")	#
 if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
-  $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
+  $IDEEPCOLOR="python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
   $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
   $GLOBPROTOTXT="/shared/foss-18/ideepcolor/models/global_model/global_stats.prototxt";
@@ -358,7 +358,7 @@ else
         {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} else {$GMIC3="";}
     if ($SIZE) 
         {$GMIC4="-resize2dx $SIZE,5";}  else {$GMIC4="";}
-  $cmd="$GMIC -i $IIN $GMIC0 $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $WORKDIR/$I.png $LOG2";
+  $cmd="$GMIC -i $IIN $GMIC0 $GMIC4 $GMIC1 $GMIC2 $GMIC3 -to_gray -to_colormode 3 -o $WORKDIR/$I.png $LOG2";
   verbose($cmd);
   print("--------> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
   system $cmd;

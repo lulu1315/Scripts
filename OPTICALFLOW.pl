@@ -215,6 +215,7 @@ if ($#ARGV == -1) {
 	print "-i imagein\n";
 	print "-odir dirout\n";
     print "-shot shotname\n";
+    print "-m method\n";
 	print "-zeropad4 [1]\n";
 	print "-force [0]\n";
 	print "-verbose\n";
@@ -257,6 +258,11 @@ if (@ARGV[$arg] eq "-fbornes")
     {
     $INDIR=@ARGV[$arg+1];
     print "in dir : $INDIR\n";
+    }
+  if (@ARGV[$arg] eq "-m") 
+    {
+    $METHOD=@ARGV[$arg+1];
+    print "method : $METHOD\n";
     }
   if (@ARGV[$arg] eq "-i") 
     {
@@ -398,7 +404,8 @@ if ($userName eq "dev18")	#
   $CPM="/shared/foss-18/CPM/build/CPM";
   $RIC="/shared/foss-18/Ric/build/RIC";
   $EPPM="/shared/foss-18/EPPM/build/runeppm";
-  $OFDIS="/shared/foss-18/OF_DIS/build/run_OF_RGB";
+  if ($HOSTNAME =~ "v8") {$OFDIS="/shared/foss-18/OF_DIS-amd/build/run_OF_RGB";}
+  else  {$OFDIS="/shared/foss-18/OF_DIS/build/run_OF_RGB";}
   $DEEPMATCH="/shared/foss-18/DeepFlow/deepmatching";
   $DEEPFLOW2="/shared/foss-18/DeepFlow/deepflow2";
   $DEEPFLOW_OPENCV="/shared/foss-18/FlowCode/build/deepflow_opencv";

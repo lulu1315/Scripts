@@ -322,7 +322,8 @@ if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
   $LUA="/shared/foss-18/neural-style/neural_style.lua";
-  $TH="/shared/foss-18/torch/install/bin/th";
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $MODELDIR="/shared/foss-18/neural-style/models";
   $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";

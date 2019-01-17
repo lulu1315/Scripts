@@ -5,22 +5,32 @@ use Env;
 use Term::ANSIColor qw(:constants);
 use Image::Magick;
 #http://www.imagemagick.org/script/command-line-options.php
+$HOSTNAME=`cat /etc/hostname`;chop $HOSTNAME;
+$KDEVERSION=`lsb_release -c -s`;chop $KDEVERSION;
+$GPUS=`nvidia-smi -L | wc -l`;chop $GPUS;
+$GPUTYPE=`nvidia-smi -q -i 0 | grep "Product Name" | cut -d':' -f2 | cut -c 2-`;chop $GPUTYPE;
 $script = $0;
-print BOLD BLUE "script : $script\n";print RESET;
 @tmp=split(/\//,$script);
 $scriptname=$tmp[$#tmp];
 @tmp=split(/\./,$scriptname);
 $scriptname=lc $tmp[0];
-print BOLD BLUE "scriptname : $scriptname\n";print RESET;
 $CWD=getcwd;
 #get project name
 @tmp=split(/\//,$CWD);
 $PROJECT=$tmp[$#tmp];
+$userName =  $ENV{'USER'}; 
+print BOLD BLUE "----------------------\n";print RESET;
+print BOLD BLUE "user    : $userName\n";print RESET;
+print BOLD BLUE "host    : $HOSTNAME\n";print RESET;
+print BOLD BLUE "kde     : $KDEVERSION\n";print RESET;
+print BOLD BLUE "gpu     : $GPUTYPE (x$GPUS)\n";print RESET;
+print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
+print BOLD BLUE "----------------------\n";print RESET;
 
 #defaults
-$FSTART=1;
-$FEND=100;
+$FSTART="auto";
+$FEND="auto";
 $FSTEP=1;
 $SHOT="";
 $INDIR="$CWD/originales";
@@ -179,7 +189,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $CONF=@ARGV[$arg+1];
     print "using conf file $CONF\n";
-    require $CONF;
+    require "./$CONF";
     if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
     else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
@@ -310,6 +320,13 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
   $GMIC="/shared/foss/gmic/src/gmic";
   $EXR2FLO="/shared/Scripts/bin/exr2flo";
   $ETF="/shared/foss/Coherent-Line-Drawing/build/ETF-cli";
+  }
+  
+if ($userName eq "dev18")	#
+  {
+  $GMIC="/usr/bin/gmic";
+  $EXR2FLO="/shared/foss-18/FlowCode/build/exr2flo";
+  $ETF="/shared/foss-18/Coherent-Line-Drawing/build/ETF-cli";
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}

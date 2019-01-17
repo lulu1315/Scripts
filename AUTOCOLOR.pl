@@ -47,7 +47,7 @@ $METHOD=0;
 #preprocess
 $SIZE=0;
 $DOLOCALCONTRAST=0;
-$ROLLING=2;
+$ROLLING=0;
 $BRIGHTNESS=0;
 $CONTRAST=0;
 $GAMMA=0;
@@ -212,7 +212,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
-  $TH="/shared/foss-18/torch/install/bin/th";
+    if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $LETTHERE_LUA="/shared/foss/siggraph2016_colorization/colorize.lua";
   $LETTHERE_MODEL="/shared/foss/siggraph2016_colorization/colornet.t7";
   $CPU="";
@@ -324,7 +325,7 @@ else {
     else {$GMIC3="";}
     if ($SIZE) 
         {$GMIC4="-resize2dx $SIZE,5";} 
-  $cmd="$GMIC -i $IIN $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $WORKDIR/$I.png $LOG2";
+  $cmd="$GMIC -i $IIN $GMIC4 $GMIC1 $GMIC2 $GMIC3 -to_gray -to_colormode 3 -o $WORKDIR/$I.png $LOG2";
   verbose($cmd);
   print("--------> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
   system $cmd;

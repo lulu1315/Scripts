@@ -274,7 +274,8 @@ if ($userName eq "dev" || $userName eq "render")	#
 if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
-  $TH="/shared/foss-18/torch/install/bin/th";
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $LUA="/shared/foss-18/waifu2x/waifu2x.lua";
   $MODELDIR="/shared/foss-18/waifu2x/models/anime_style_art_rgb/";
 #  $MODELDIR="/shared/foss-18/waifu2x/models/photo/";

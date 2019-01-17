@@ -414,7 +414,8 @@ if ($userName eq "dev18")	#
   {
   $CPU=0;
   $GMIC="/usr/bin/gmic";
-  $QLUA="/shared/foss-18/torch/install/bin/qlua";
+    if ($HOSTNAME =~ "v8") {$QLUA="/shared/foss-18/torch-amd/install/bin/qlua";}
+  else  {$QLUA="/shared/foss-18/torch/install/bin/qlua";}
   $PROTO="/shared/foss-18/CNNMRF/data/models/VGG_ILSVRC_19_layers_deploy.prototxt";
   $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
