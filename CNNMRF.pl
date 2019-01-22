@@ -401,7 +401,7 @@ if ($userName eq "dev" || $userName eq "render")	#
   $GLOBCAFFEMODEL="/shared/foss/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss/color_transfer/color_transfer.py";
   $HMAP="/shared/foss/hmap/hmap_c.py";
-  $LINEARCOLORTRANSFERT="/shared/foss/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss/Neural-Tools/linear-color-transfer.py";
   if ($DEV) {$CNNMRF="/shared/foss/CNNMRF/cnnmrf_dev.lua";}
   else      {$CNNMRF="/shared/foss/CNNMRF/cnnmrf.lua";}
   $MODEL="/shared/foss/CNNMRF/data/models/VGG_ILSVRC_19_layers.caffemodel";
@@ -424,7 +424,7 @@ if ($userName eq "dev18")	#
   $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
   $HMAP="/shared/foss-18/hmap/hmap.py";
-  $LINEARCOLORTRANSFERT="/shared/foss-18/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
   if ($DEV) {$CNNMRF="/shared/foss-18/CNNMRF/cnnmrf_dev.lua";}
   else      {$CNNMRF="/shared/foss-18/CNNMRF/cnnmrf.lua";}
   $MODEL="/shared/foss-18/CNNMRF/data/models/VGG_ILSVRC_19_layers.caffemodel";
@@ -447,7 +447,7 @@ if ($userName eq "lulu")	#
   $GLOBCAFFEMODEL="/shared/foss/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss/color_transfer/color_transfer.py";
   $HMAP="/shared/foss/hmap/hmap_c.py";
-  $LINEARCOLORTRANSFERT="/shared/foss/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss/Neural-Tools/linear-color-transfer.py";
   if ($DEV) {$CNNMRF="/shared/foss/CNNMRF/cnnmrf_dev.lua";}
   else      {$CNNMRF="/shared/foss/CNNMRF/cnnmrf.lua";}
   $MODEL="/shared/foss/CNNMRF/data/models/VGG_ILSVRC_19_layers.caffemodel";
@@ -595,7 +595,7 @@ else
   if ($DOCOLORTRANSFERT == 3)
     {
     verbose("color transfert : using neural-tools");
-    $cmd="python $LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
+    $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
     print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
     verbose($cmd);
     system $cmd;

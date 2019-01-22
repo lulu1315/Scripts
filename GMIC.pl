@@ -238,7 +238,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $CONF=@ARGV[$arg+1];
     print "using conf file $CONF\n";
-    require $CONF;
+    require "./$CONF";
     if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
     else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
@@ -368,10 +368,9 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
+if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
   {
-  #$GMIC="/usr/bin/gmic";
-  $GMIC="/shared/foss/gmic/src/gmic";
+  $GMIC="/usr/bin/gmic";
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}

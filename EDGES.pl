@@ -103,7 +103,7 @@ $CLDTANGENT="tangent";
 $CLDFDOGITERATION=3;
 $CLDSIGMAM=2;
 $CLDSIGMAC=1;
-$CLDRHO=.98;
+$CLDRHO=.995;
 $CLDTAU=.99;
 #post process
 $DOPEL=0;
@@ -272,6 +272,7 @@ if ($#ARGV == -1) {
 	print "-odir dirout\n";
 	print "-o imageout\n";
 	print "-shot shotname\n";
+	print "-m method[8]\n";
 	print "-zeropad4 [1]\n";
 	print "-force [0]\n";
 	print "-verbose\n";
@@ -332,6 +333,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $SHOT=@ARGV[$arg+1];
     print "shotname : $SHOT\n";
+    }
+  if (@ARGV[$arg] eq "-m") 
+    {
+    $METHOD=@ARGV[$arg+1];
+    print "method : $METHOD\n";
     }
   if (@ARGV[$arg] eq "-cld") 
     {

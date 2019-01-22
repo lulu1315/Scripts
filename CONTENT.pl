@@ -1,26 +1,39 @@
 #!/usr/bin/perl
- 
+
 use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
 use Image::Magick;
 #http://www.imagemagick.org/script/command-line-options.php
+$HOSTNAME=`cat /etc/hostname`;chop $HOSTNAME;
+$KDEVERSION=`lsb_release -c -s`;chop $KDEVERSION;
+$GPUS=`nvidia-smi -L | wc -l`;chop $GPUS;
+$GPUTYPE=`nvidia-smi -q -i 0 | grep "Product Name" | cut -d':' -f2 | cut -c 2-`;chop $GPUTYPE;
 $script = $0;
-print BOLD BLUE "script : $script\n";print RESET;
 @tmp=split(/\//,$script);
 $scriptname=$tmp[$#tmp];
+@tmp=split(/\./,$scriptname);
+$scriptname=lc $tmp[0];
 $CWD=getcwd;
 #get project name
 @tmp=split(/\//,$CWD);
 $PROJECT=$tmp[$#tmp];
+$userName =  $ENV{'USER'}; 
+print BOLD BLUE "----------------------\n";print RESET;
+print BOLD BLUE "user    : $userName\n";print RESET;
+print BOLD BLUE "host    : $HOSTNAME\n";print RESET;
+print BOLD BLUE "kde     : $KDEVERSION\n";print RESET;
+print BOLD BLUE "gpu     : $GPUTYPE (x$GPUS)\n";print RESET;
+print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
+print BOLD BLUE "----------------------\n";print RESET;
 
 #pour keyframe
 $keycount=0;
 $PRINT=0;
 #defaults
-$FSTART=1;
-$FEND=100;
+$FSTART="auto";
+$FEND="auto";
 $FSTEP=1;
 $SHOT="";
 $CONTENTDIR="$CWD/originales";
@@ -169,7 +182,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $CONF=@ARGV[$arg+1];
     print BOLD BLUE "configuration file : $CONF\n";print RESET;
-    require $CONF;
+    require "./$CONF";
     if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
     else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
@@ -235,8 +248,26 @@ if ($userName eq "dev" || $userName eq "render")	#
   $GLOBCAFFEMODEL="/shared/foss/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss/color_transfer/color_transfer.py";
   $HMAP="/shared/foss/hmap/hmap_c.py";
-  $LINEARCOLORTRANSFERT="/shared/foss/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss/Neural-Tools/linear-color-transfer.py";
   $ENV{PYTHONPATH} = "/shared/foss/caffe-cpu/python:/shared/foss/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
+  verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
+  }
+if ($userName eq "dev18")	#
+  {
+  $GMIC="/usr/bin/gmic";
+  $LUA="/shared/foss/neural-style/neural_style.lua";
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  else  {$TH="/shared/foss-18/torch/install/bin/th";}
+  $MODELDIR="/shared/foss-18/neural-style/models";
+  $IDEEPCOLOR="python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
+  $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
+  $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
+  $GLOBPROTOTXT="/shared/foss-18/ideepcolor/models/global_model/global_stats.prototxt";
+  $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
+  $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
+  $HMAP="/shared/foss-18/hmap/hmap_c.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
+  $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
   }
 if ($userName eq "lulu")	#
@@ -256,6 +287,36 @@ if ($userName eq "lulu")	#
   }
 
 sub neural {
+
+#auto frames
+if ($FSTART eq "auto" || $FEND eq "auto")
+    {
+    $AUTODIR="$CONTENTDIR";
+    print ("frames $FSTART $FEND dir $AUTODIR\n");
+    opendir DIR, "$AUTODIR";
+    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    closedir DIR;
+    $min=9999999;
+    $max=-1;
+    foreach $ima (@images) 
+        { 
+        #print ("$ima\n");
+        @tmp=split(/\./,$ima);
+        if ($#tmp >= 2)
+            {
+            $numframe=int($tmp[$#tmp-1]);
+            #print ("$numframe\n");
+            if ($numframe > $max) {$max = $numframe;}
+            if ($numframe < $min) {$min = $numframe;}
+            }
+        }
+    
+    if ($FSTART eq "auto") {$FSTART = $min;}
+    if ($FEND   eq "auto") {$FEND   = $max;}
+    print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
 $OOUTDIR="$OUTDIR/$SHOT";
 if (-e "$OOUTDIR") {print "$OOUTDIR already exists\n";}
 else {$cmd="mkdir $OOUTDIR";system $cmd;}
@@ -353,7 +414,7 @@ else
   if ($DOCOLORTRANSFERT == 3)
     {
     verbose("color transfert : using neural-tools");
-    $cmd="python $LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
+    $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
     print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
     verbose($cmd);
     system $cmd;
@@ -371,7 +432,7 @@ else
     {
     verbose("color transfert : using indexed color");
     $INDEXCOLOR=64;
-    $cmd="gmic -i $WCONTENT -i $STYLEDIR/$STYLE -colormap[1] $INDEXCOLOR,1,1 -index[0] [1],1,1 -remove[1] -o $WCOLOR";
+    $cmd="$GMIC -i $WCONTENT -i $STYLEDIR/$STYLE -colormap[1] $INDEXCOLOR,1,1 -index[0] [1],1,1 -remove[1] -o $WCOLOR";
     #$cmd="$IDEEPCOLOR $WCONTENT $STYLEDIR/$STYLE $WCOLOR $PROTOTXT $CAFFEMODEL $GLOBPROTOTXT $GLOBCAFFEMODEL";
     print("--------> indexcolor [style:$STYLE colors:$INDEXCOLOR]\n");
     verbose($cmd);

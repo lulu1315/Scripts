@@ -53,6 +53,7 @@ $CONTRAST=0;
 $GAMMA=0;
 $SATURATION=0;
 #misc
+$GPU=0;
 $CSV=0;
 $VERBOSE=0;
 $CLEAN=1;
@@ -110,6 +111,7 @@ print AUTOCONF confstr(CONTRAST);
 print AUTOCONF confstr(GAMMA);
 print AUTOCONF confstr(SATURATION);
 print AUTOCONF "#misc\n";
+print AUTOCONF confstr(GPU);
 print AUTOCONF confstr(CSV);
 print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(CLEAN);
@@ -152,6 +154,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $FSTART=@ARGV[$arg+1];
     $FEND=@ARGV[$arg+2];
     print "seq : $FSTART $FEND\n";
+    }
+  if (@ARGV[$arg] eq "-gpu")
+    {
+    $GPU=@ARGV[$arg+1];
+    print "gpu : $GPU\n";
     }
   if (@ARGV[$arg] eq "-idir")
     {
@@ -256,14 +263,22 @@ if ($userName eq "lulu")	#
   }
 if ($userName eq "dev18")	#
   {
+  if ($HOSTNAME =~ "hp") {$GPU=-1}
   $GMIC="/usr/bin/gmic";
   $IDEEPCOLOR="python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
   $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
   $GLOBPROTOTXT="/shared/foss-18/ideepcolor/models/global_model/global_stats.prototxt";
   $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
+  if ($HOSTNAME =~ "hp") {
+  $ENV{PYTHONPATH} = "/shared/foss-18/caffe-cpu/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
+  $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/caffe-cpu/build/lib:$ENV{'LD_LIBRARY_PATH'}";
+  }
+  else
+  {
   $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/caffe/build/lib:$ENV{'LD_LIBRARY_PATH'}";
+  }
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
   }
   
@@ -364,7 +379,7 @@ else
   system $cmd;
   $IIN="$WORKDIR/$I.png";
   #
-  $cmd="$IDEEPCOLOR $IIN $STYLEDIR/$STYLE $OOUT $PROTOTXT $CAFFEMODEL $GLOBPROTOTXT $GLOBCAFFEMODEL $LOG2";
+  $cmd="$IDEEPCOLOR $IIN $STYLEDIR/$STYLE $OOUT $PROTOTXT $CAFFEMODEL $GLOBPROTOTXT $GLOBCAFFEMODEL $GPU $LOG2";
   verbose($cmd);
   print("--------> ideepcolor\n");
   system $cmd;

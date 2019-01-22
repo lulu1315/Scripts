@@ -266,7 +266,7 @@ if (($userName eq "dev") || ($userName eq "render"))	#
   $GLOBCAFFEMODEL="/shared/foss/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss/color_transfer/color_transfer.py";
   $HMAP="/shared/foss/hmap/hmap_c.py";
-  $LINEARCOLORTRANSFERT="/shared/foss/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss/Neural-Tools/linear-color-transfer.py";
   $ENV{PYTHONPATH} = "/shared/foss/caffe/python:/shared/foss/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
   }
@@ -286,7 +286,7 @@ if ($userName eq "dev18") #
   $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
   $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
   $HMAP="/shared/foss-18/hmap/hmap.py";
-  $LINEARCOLORTRANSFERT="/shared/foss-18/Neural-Tools/linear-color-transfer.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
   $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/caffe/build/lib:$ENV{'LD_LIBRARY_PATH'}";
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");

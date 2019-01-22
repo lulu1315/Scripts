@@ -212,11 +212,12 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
-    if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
+  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
   else  {$TH="/shared/foss-18/torch/install/bin/th";}
   $LETTHERE_LUA="/shared/foss/siggraph2016_colorization/colorize.lua";
   $LETTHERE_MODEL="/shared/foss/siggraph2016_colorization/colornet.t7";
-  $CPU="";
+  if ($HOSTNAME =~ "hp") {$CPU="-d cpu";$GPU=-1}
+  else {$CPU="";}
   $AUTOCOLORIZE="/usr/local/bin/autocolorize";
   $ZHANGCOLORIZE1="python3 /shared/foss-18/colorization/color.py";
   $ZHANGPROTO1="/shared/foss-18/colorization/models/colorization_deploy_v1.prototxt";
@@ -227,7 +228,8 @@ if ($userName eq "dev18")	#
   $ZHANGCOLORIZE3="python3 /shared/foss-18/colorization/color_v2.py";
   $ZHANGPROTO3="/shared/foss-18/colorization/models/colorization_deploy_v2.prototxt";
   $ZHANGMODEL3="/shared/foss-18/colorization/models/colorization_release_v2_norebal.caffemodel";
-  $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:$ENV{'PYTHONPATH'}";
+  if ($HOSTNAME =~ "hp") {$ENV{PYTHONPATH} = "/shared/foss-18/caffe-cpu/python:$ENV{'PYTHONPATH'}";}
+  else {$ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:$ENV{'PYTHONPATH'}";}
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
   }
 if ($VERBOSE) {$LOG1="";$LOG2="";}
@@ -348,6 +350,7 @@ else {
     -rgb2yuv8[1] -resize[1] [0],5 \\
     -channels[0] 0 -channels[1] 1,2 \\
     -split[1] c -append c -yuv82rgb -o $OOUT $LOG2";
+    verbose($combinecmd);
     system $combinecmd;
     #-----------------------------#
     ($s21,$m21,$h21)=localtime(time);
@@ -361,6 +364,7 @@ else {
     #-----------------------------#
     ($s11,$m11,$h11)=localtime(time);
     #-----------------------------#
+    $LOG2="2>/var/tmp/$scriptname.log";
     $OOUT="$OOUTDIR/$OUT$PARAMS\_m2.$ii.$EXT";
     $cmd="$AUTOCOLORIZE $CPU $IIN -o $OOUT -s $NETWORKSIZE $LOG2";
     verbose($cmd);
@@ -378,7 +382,7 @@ else {
     ($s11,$m11,$h11)=localtime(time);
     #-----------------------------#
     $OOUT="$OOUTDIR/$OUT$PARAMS\_m3.$ii.$EXT";
-    $cmd="$ZHANGCOLORIZE1 $IIN $OOUT $ZHANGPROTO1 $ZHANGMODEL1 $LOG2";
+    $cmd="$ZHANGCOLORIZE1 $IIN $OOUT $ZHANGPROTO1 $ZHANGMODEL1 $GPU $LOG2";
     verbose($cmd);
     system $cmd;
     #-----------------------------#
@@ -394,7 +398,7 @@ else {
     ($s11,$m11,$h11)=localtime(time);
     #-----------------------------#
     $OOUT="$OOUTDIR/$OUT$PARAMS\_m4.$ii.$EXT";
-    $cmd="$ZHANGCOLORIZE2 $IIN $OOUT $ZHANGPROTO2 $ZHANGMODEL2 $LOG2";
+    $cmd="$ZHANGCOLORIZE2 $IIN $OOUT $ZHANGPROTO2 $ZHANGMODEL2 $GPU $LOG2";
     verbose($cmd);
     system $cmd;
     #-----------------------------#
@@ -410,7 +414,7 @@ else {
     ($s11,$m11,$h11)=localtime(time);
     #-----------------------------#
     $OOUT="$OOUTDIR/$OUT$PARAMS\_m5.$ii.$EXT";
-    $cmd="$ZHANGCOLORIZE3 $IIN $OOUT $ZHANGPROTO3 $ZHANGMODEL3 $LOG2";
+    $cmd="$ZHANGCOLORIZE3 $IIN $OOUT $ZHANGPROTO3 $ZHANGMODEL3 $GPU $LOG2";
     verbose($cmd);
     system $cmd;
     #-----------------------------#
