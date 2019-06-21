@@ -31,6 +31,7 @@ print BOLD BLUE "----------------------\n";print RESET;
 #defaults
 $FSTART="auto";
 $FEND="auto";
+$CONTINUE=-1;
 $SHOT="";
 $SKETCHDIR="$CWD/edges";
 $SKETCH="ima";
@@ -39,7 +40,9 @@ $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
 $HINTDIR="$CWD/slic";
 $HINT="ima_hint";
-$OUTDIR="$CWD/mangastyle";
+$OUTDIR="$CWD/manga";
+#$FLOWDIR="$CWD/opticalflow";
+#$CONTENTBLEND="5e-1";
 $OUT_USE_SHOT=0;
 $ZEROPAD=1;
 $FORCE=0;
@@ -52,6 +55,14 @@ $DREAMSMOOTH=0;
 $DILATE=0;
 $HINTDILATE=10;
 $HINTGAIN=0;
+$DOCOLORTRANSFERT=3;
+$LCTMODE="pca";
+#reindex result
+$DOINDEX=0;
+$INDEXCOLOR=64;
+$INDEXMETHOD=1;
+$DITHERING=1;
+$INDEXROLL=5;
 #manga params
 $SIZE=0;
 $VERSION=4;
@@ -90,7 +101,7 @@ sub confstr {
   }
 
 sub autoconf {
-open (AUTOCONF,">","mangastyle_auto.conf");
+open (AUTOCONF,">","manga_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
@@ -104,6 +115,8 @@ print AUTOCONF confstr(STYLEDIR);
 print AUTOCONF confstr(STYLE);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUT_USE_SHOT);
+#print AUTOCONF confstr(FLOWDIR);
+#print AUTOCONF confstr(CONTENTBLEND);
 print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
@@ -115,6 +128,16 @@ print AUTOCONF confstr(DREAMSMOOTH);
 print AUTOCONF confstr(DILATE);
 print AUTOCONF confstr(HINTDILATE);
 print AUTOCONF confstr(HINTGAIN);
+print AUTOCONF "#color transfer hint\n";
+print AUTOCONF confstr(DOCOLORTRANSFERT);
+print AUTOCONF "#0 : no transfert\n";
+print AUTOCONF "#3 : Neural-tools\n";
+print AUTOCONF "#reindex\n";
+print AUTOCONF confstr(DOINDEX);
+print AUTOCONF confstr(INDEXCOLOR);
+print AUTOCONF confstr(INDEXMETHOD);
+print AUTOCONF confstr(DITHERING);
+print AUTOCONF confstr(INDEXROLL);
 print AUTOCONF "#manga parameters\n";
 print AUTOCONF confstr(SIZE);
 print AUTOCONF confstr(VERSION);
@@ -153,7 +176,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   {
   if (@ARGV[$arg] eq "-autoconf") 
     {
-    print "writing mangastyle_auto.conf : mv mangastyle_auto.conf mangastyle.conf \n";
+    print "writing manga_auto.conf : mv manga_auto.conf manga.conf \n";
     autoconf();
     exit;
     }
@@ -202,6 +225,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $GPU=@ARGV[$arg+1];
     print "gpu id : $GPU\n";
+    }
+  if (@ARGV[$arg] eq "-continue") 
+    {
+    $CONTINUE=@ARGV[$arg+1];
+    print "continuing at frame : $CONTINUE\n";
     }
   if (@ARGV[$arg] eq "-open") 
     {
@@ -253,7 +281,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "dev" || $userName eq "render")	#
+if ($userName eq "dev")	#
   {
   $GMIC="/shared/foss/gmic/src/gmic";
   $MANGA="python /shared/foss/style2paints/server/mangastyle.py";
@@ -261,10 +289,22 @@ if ($userName eq "dev" || $userName eq "render")	#
   print "$cmd\n";
   system $cmd;
   }
-if ($userName eq "dev18")	#
+if ($userName eq "dev18"  || $userName eq "render")	#
   {
   $GMIC="/usr/bin/gmic";
   $MANGA="python3 /shared/foss-18/style2paints/mangastyle.py";
+  $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
+  $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
+  $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
+  $GLOBPROTOTXT="/shared/foss-18/ideepcolor/models/global_model/global_stats.prototxt";
+  $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
+  $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
+  $HMAP="/shared/foss-18/hmap/hmap.py";
+  $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
+  $PREVIOUS_WARP="/shared/foss-18/opencv-code/warper/build/previous_warp";
+  $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
+  $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/caffe/build/lib:$ENV{'LD_LIBRARY_PATH'}";
+  verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
   }
 
 if ($userName eq "lulu")	#
@@ -275,6 +315,10 @@ if ($userName eq "lulu")	#
   print "$cmd\n";
   system $cmd;
   }
+
+if ($HOSTNAME =~ "hp") {$GPU = -1;print "nogpu : using cpu\n";}
+if ($HOSTNAME =~ "rnd") {$GPU = -1;print "nogpu : using cpu\n";}
+if ($HOSTNAME =~ "v80") {$GPU = -1;print "nogpu : using cpu\n";}
 
 sub manga {
 #auto frames
@@ -306,6 +350,8 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("final seq : $FSTART $FEND\n");
     }
     
+#if ($CONTINUE == -1) {$CONTINUE = $FSTART};
+
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
@@ -326,9 +372,10 @@ $SSTYLE=~ s/\.//;
 @tmp=split(/\./,$SKETCH);
 $SSKETCH=@tmp[0];
 
-for ($i=$FSTART ; $i <= $FEND ; $i++)
+for ($i=$FSTART ; $i <= $FEND ; $i=$i+1)
 {
 $ii=sprintf("%04d",$i);
+#$jj=sprintf("%04d",$i-1);
 
 #output
 if ($IN_USE_SHOT)
@@ -340,6 +387,9 @@ else
     $SSSKETCH="$SKETCHDIR/$SKETCH.$ii.$EXT";
     }
     
+#$OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.exr";
+#$CONSISTENCY="$FLOWDIR/$SHOT/dual/reliable_$ii\_$jj.png";
+
 if ($VERSION) {$FINALFRAME="$OOUTDIR/$SSKETCH\_$SSTYLE$PARAMS.$ii.$EXT";}
 else {$FINALFRAME="$OOUTDIR/$SSKETCH\_$SSTYLE\_montage.$ii.$EXT";}
 
@@ -355,16 +405,18 @@ else
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
   print BOLD YELLOW "\nframe : $ii -> $FINALFRAME\n";print RESET;
-  #
-  $WORKDIR="$OOUTDIR/w$ii";
+  #working dir
+  $pid=$$;
+  $WORKDIR="$OOUTDIR/w$ii\_$pid";
   if (!-e "$WORKDIR") {$cmd="mkdir $WORKDIR";system $cmd;}
+  
   #preprocess style
   $cmd="$GMIC $STYLEDIR/$STYLE -to_colormode 4 -o $WORKDIR/$SSTYLE.png $LOG2";
   verbose($cmd);
   print("--------> preprocess style\n");
   system $cmd;
   #preprocess content
-  if ($SIZE) {$GMIC1="-resize2dx $SIZE,1";} else {$GMIC1="";}
+  if ($SIZE) {$GMIC1="-resize2dx $SIZE,5";} else {$GMIC1="";}
   if ($DREAMSMOOTH) {$GMIC2="-fx_dreamsmooth 10,0,1,0.8,0,0.8,0,24,0";} else {$GMIC2="";}
   verbose ($DILATE);
   if ($DILATE && $INVERTSKETCH) {$GMIC3="-dilate $DILATE";}# else {$GMIC3="";}
@@ -381,27 +433,88 @@ else
   #
   $REFERENCE="$WORKDIR/$SSTYLE.png";
   $INVSKETCH="$WORKDIR/$SSKETCH.png";
-  #preprocess hint
-  $HINTFRAME="$HINTDIR/$HINT.$ii.png";
+  
+  #hint
   if ($HINT eq "")
     {
-    $cmd="$GMIC $SSSKETCH -to_colormode 4 -mul 0 -o $WORKDIR/hint.png $LOG2";
+    $cmd="$GMIC $SSSKETCH -to_colormode 4 -resize2dx $SIZE,5 -mul 0 -o $WORKDIR/hint.png $LOG2";
     verbose($cmd);
     print("--------> preprocess black hint\n");
     system $cmd;
     $HINTFRAME="$WORKDIR/hint.png";
     }
-  if ($SIZE) {$GMIC1="-resize2dx $SIZE,1";} else {$GMIC1="";}
-  if ($HINTDILATE) {$GMIC2="-dilate_circ $HINTDILATE";} else {$GMIC2="";}
-  if ($HINTGAIN) {$GMIC3="-fx_adjust_colors $HINTGAIN,0,0,0,0";} else {$GMIC3="";}
-  $cmd="$GMIC $HINTFRAME $GMIC2 $GMIC3 $GMIC1 -o $WORKDIR/hint.png $LOG2";
-  verbose($cmd);
-  print("--------> preprocess hint [size:$SIZE dilate:$HINTDILATE gain:$HINTGAIN]\n");
-  system $cmd;
-  $HINTFRAME="$WORKDIR/hint.png";
+  else
+    {
+    #preprocess hint
+    if ($IN_USE_SHOT)
+        {$HINTFRAME="$HINTDIR/$SHOT/$HINT.$ii.png";}
+    else
+        {$HINTFRAME="$HINTDIR/$HINT.$ii.png";}
+    $WHINT="$WORKDIR/hint.png";
+    
+    #color transfert --> $WCOLOR
+    if ($DOCOLORTRANSFERT == 0)
+        {
+        verbose("no color transfert");
+        $cmd="$GMIC $HINTFRAME -resize2dx $SIZE,5 -o $WHINT";
+        #$cmd="$GMIC -i $WCONTENT -to_colormode 1 -o $WCOLOR $LOG2";
+        print("--------> no color transfert []\n");
+        verbose($cmd);
+        system $cmd;
+        }
+    if ($DOCOLORTRANSFERT == 3)
+        {
+        $WHINTALPHA="$WORKDIR/hint_alpha.png";
+        #separate alpha from color
+        $cmd="$GMIC $HINTFRAME -split c -o[3] $WHINTALPHA -remove[3] -append c -o $WHINT $LOG2";
+        verbose($cmd);
+        print("--------> hint : separate color and mask\n");
+        system $cmd;
+        verbose("color transfert : using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WHINT --source_image $STYLEDIR/$STYLE --output_image $WHINT";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WHINT -index[1] [0],1,$DITHERING -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WHINT $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        #reinject alpha in hint
+        $cmd="$GMIC $WHINT -split c $WHINTALPHA -append c -o $WHINT $LOG2";
+        verbose($cmd);
+        print("--------> hint : reinject mask\n");
+        system $cmd;
+        }
+
+    if ($SIZE) {$GMIC1="-resize2dx $SIZE,5";} else {$GMIC1="";}
+    if ($HINTDILATE) {$GMIC2="-dilate_circ $HINTDILATE";} else {$GMIC2="";}
+    if ($HINTGAIN) {$GMIC3="-fx_adjust_colors $HINTGAIN,0,0,0,0";} else {$GMIC3="";}
+    $cmd="$GMIC $WHINT $GMIC2 $GMIC3 $GMIC1 -o $WHINT $LOG2";
+    verbose($cmd);
+    print("--------> preprocess hint [size:$SIZE dilate:$HINTDILATE gain:$HINTGAIN]\n");
+    system $cmd;
+    $HINTFRAME=$WHINT;
+    }
+    
   #must be in a python 3.6 env
   if ($VERSION)
     {
+    #warp previous and blend
+#    if (($i != $FSTART) && ($HINT != ""))
+#        {
+#        #resize previous result
+#        $WPREVIOUS="$WORKDIR/previous.png";
+#        $cmd="cp $OOUTDIR/$SSKETCH\_$SSTYLE$PARAMS.$jj.$EXT $WPREVIOUS";
+#        verbose($cmd);
+#        system $cmd;
+#        $cmd="$PREVIOUS_WARP $WCOLOR $WPREVIOUS $OFLOW $CONSISTENCY $CONTENTBLEND $WCOLOR";
+#        print("--------> warping previous result [content blend:$CONTENTBLEND]\n");
+#        verbose($cmd);
+#        system $cmd;
+#        }
     $mangacmd="$MANGA $GPU $INVSKETCH $REFERENCE $HINTFRAME $VERSION $DENOISE $FINALFRAME $LOG2";
     verbose($mangacmd);
     print("--------> manga transfert [gpu:$GPU version:$VERSION denoise:$DENOISE]\n");
@@ -442,7 +555,7 @@ else
     }
   }
 }
-}#swap sub
+}#manga sub
 
 #main
 if ($CSV)
@@ -532,8 +645,8 @@ sub lapse  {
 sub json {
 $CMD="MANGA";
 $FRAMESINC=1;
-$PARSER="gpuserv";
-$SERVICE="gpuserv";
+$PARSER="manga";
+$SERVICE="manga";
 $OFFLINE="true";
 
 $WORKINGDIR=$CWD;

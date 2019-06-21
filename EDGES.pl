@@ -50,8 +50,8 @@ $DOLOCALCONTRAST=0;
 $EQUALIZE=0;
 $EQUALIZEMIN="20%";
 $EQUALIZEMAX="80%";
-$ROLLING=2;
-$INBLUR=2;
+$ROLLING=0;
+$INBLUR=0;
 $DOBILATERAL=0;
 $BILATERALSPATIAL=5;
 $BILATERALVALUE=5;
@@ -237,6 +237,7 @@ print AUTOCONF confstr(CLDSIGMAM);
 print AUTOCONF confstr(CLDSIGMAC);
 print AUTOCONF confstr(CLDRHO);
 print AUTOCONF confstr(CLDTAU);
+print AUTOCONF "#12 : globalPg\n";
 print AUTOCONF "#postprocess\n";
 print AUTOCONF confstr(DOPEL);
 print AUTOCONF confstr(DOPELPLY);
@@ -472,6 +473,7 @@ if ($userName eq "dev18")	#
   $DLIB="/shared/foss-18/dlib-19.16/lulu_examples/build/edge_detector";
   $CLD="/shared/foss-18/Coherent-Line-Drawing/build/CLD-cli";
   $CLDOFLOW="/shared/foss-18/Coherent-Line-Drawing/build/CLD-oflow-cli";
+  $GPB="/shared/foss-18/gPb-GSoC/opencv_gpb/build/gpb_main";
   $ENV{PATH} = "/shared/foss-18/Pink/linux/bin:$ENV{'PATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/ED/ED:$ENV{'LD_LIBRARY_PATH'}";
   }
@@ -580,7 +582,7 @@ else
   if ($DOBILATERAL) 
         {$GMIC7="-fx_smooth_bilateral $BILATERALSPATIAL,$BILATERALVALUE,$BILATERALITER,0,0";} 
     else {$GMIC7="";}
-  $cmd="$GMIC -i $IIN $GMIC5 $GMIC4 $GMIC1 $GMIC2 $GMIC3 $GMIC6 $GMIC7 -o $WORKDIR/$I.png $LOG2";
+  $cmd="$GMIC -i $IIN -to_colormode 3 $GMIC5 $GMIC4 $GMIC1 $GMIC2 $GMIC3 $GMIC6 $GMIC7 -o $WORKDIR/$I.png $LOG2";
   verbose($cmd);
   print("--------> preprocess input [size:$SIZE equalize:$EQUALIZE lce:$DOLOCALCONTRAST rolling:$ROLLING blur:$INBLUR bilateral:$DOBILATERAL,$BILATERALSPATIAL,$BILATERALVALUE,$BILATERALITER bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
   system $cmd;
@@ -1235,6 +1237,106 @@ else
     $cmd="$CLD $IIN $EDGEFLOWIN $CLDFDOGITERATION $CLDSIGMAM $CLDSIGMAC $CLDRHO $CLDTAU $POUT";
     verbose($cmd);
     print("--------> Coherent Line Drawing [DogF iter:$CLDFDOGITERATION sigma_m:$CLDSIGMAM sigma_c:$CLDSIGMAC rho:$CLDRHO tau:$CLDTAU]\n");
+    system $cmd;
+    #do PEL
+    if ($DOPEL)
+        {
+        #invert image
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC $PIN -n 0,1 -oneminus -n 0,255 -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> inverting for PEL\n");
+        system $cmd;
+        #thinning
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $THINMETHOD=1;
+        $cmd="$PINKBIN/skelpar $PIN $THINMETHOD -1 $POUT";
+        verbose($cmd);
+        print("--------> pink thinning [method:$THINMETHOD]\n");
+        system $cmd;
+        #
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        if ($DOPELPLY)
+            {
+            $OOUTPLY="$OOUTDIR/$OUT\_m$METHOD.$ii.ply";
+            $cmd="$PELTEXT $PIN $POUT $OOUTPLY $PELMINSEGLENGTH";
+            print("--------> PEL + PEL ply [min seg length:$PELMINSEGLENGTH]\n");
+            }
+        else
+            {
+            $cmd="$PEL $PIN $POUT $PELMINSEGLENGTH";
+            print("--------> PEL [min seg length:$PELMINSEGLENGTH]\n");
+            }
+        verbose($cmd);
+        system $cmd;
+        }
+     if ($DILATE)
+        {
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC $PIN -dilate_circ $DILATE -b 1 -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> dilate_circ [dilate:$DILATE]\n");
+        system $cmd;
+        }
+    if ($EDGESMOOTH) 
+        {
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC $PIN -fx_dreamsmooth 10,0,1,0.8,0,0.8,0,24,0 -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> dreamsmooth\n");
+        system $cmd;
+        }
+    if ($DOPOTRACE)
+        {
+        #convert to pgm
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC -i $PIN -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> gmic : convert to pgm for potrace\n");
+        system $cmd;
+        #potrace
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$POTRACE $PIN -o $POUT -g -k $BLACKLEVEL";
+        verbose($cmd);
+        print("--------> potrace [blacklevel:$BLACKLEVEL]\n");
+        system $cmd;
+        #bug potrace
+        $cmd="convert $POUT $OOUT";
+        verbose($cmd);
+        print("--------> potrace bug\n");
+        system $cmd;
+        }
+    else
+        {
+        #--> output
+        $cmd="$GMIC -i $POUT -to_colormode 3 -o $OOUT $LOG2";
+        verbose($cmd);
+        system $cmd;
+        }
+    if ($DODESPECKLE) 
+        {
+        $cmd="$GMIC $OOUT gcd_despeckle $DESPECKLETOLERANCE,$DESPECKLEMAXAREA -o $OOUT $LOG2";
+        verbose($cmd);
+        print("--------> despeckle [tolerance:$DESPECKLETOLERANCE max area:$DESPECKLEMAXAREA\n");
+        system $cmd;
+        }
+    if ($INVFINAL)
+        {
+        $cmd="$GMIC $OOUT $GMICINV -o $OOUT $LOG2";
+        verbose($cmd);
+        print("--------> inverting final\n");
+        system $cmd;
+        }
+    }
+  if ($METHOD == 12 || $METHOD == 0)
+    {
+    $OOUT="$OOUTDIR/$OUT$PARAMS\_m12.$ii.$EXT";
+    $OOUTUCM="$OOUTDIR/$OUT$PARAMS\_ucm.$ii.$EXT";
+    $I=1;
+    $PIN="$WORKDIR/$I.png";$I++;$POUT="$WORKDIR/$I.pgm";
+    $cmd="$GPB $PIN $POUT $OOUTUCM";
+    verbose($cmd);
+    print("--------> globalPg\n");
     system $cmd;
     #do PEL
     if ($DOPEL)

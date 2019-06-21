@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 
+use File::Find qw(find);
 use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
-use Image::Magick;
-#http://www.imagemagick.org/script/command-line-options.php
+
 $script = $0;
 print BOLD BLUE "script : $script\n";print RESET;
 @tmp=split(/\//,$script);
@@ -24,14 +24,23 @@ sub isnum ($) {
     $_[0] ^ $_[0] ? 0 : 1
 }
 
+sub list_dirs {
+        my @dirs = @_;
+        my @files;
+        find({ wanted => sub { push @files, $_ } , no_chdir => 1 }, @dirs);
+        return @files;
+}
+
 #defaults
 $INDIR="./originales";
 $OUTDIR="./";
 $ZEROPAD=1;
 $EXT="png";
+$FPS=25;
 $FORMAT="csv";
-$PRORESCODEC="-c:v prores -profile:v 3";
-$H264CODEC="-c:v libx264 -crf 15 -pix_fmt yuv420p";
+$PRORESCODEC="-c:v prores_ks -profile:v 3";
+$H264CODEC="-c:v libx264 -crf 10 -pix_fmt yuv420p";
+$H264CODEC="-c:v libx264 -crf 10";
 $EXECUTE=0;
 $VERBOSE=1;
 
@@ -40,6 +49,7 @@ if ($#ARGV == -1) {
 	print "-idir dirin [$INDIR]\n";
 	print "-odir dirout [$OUTDIR]\n";
 	print "-ext image extension [$EXT]\n";
+	print "-rate fps [$FPS]\n";
     print "-format [$FORMAT] ffmpeg_prores ffmpeg_h264\n";
     print "-exec : execute command (ffmpeg only) [$EXECUTE]\n";
 	exit;
@@ -62,6 +72,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $EXT=@ARGV[$arg+1];
     print "image extension : $EXT\n";
     }
+  if (@ARGV[$arg] eq "-rate") 
+    {
+    $FPS=@ARGV[$arg+1];
+    print "frame per second : $FPS\n";
+    }
   if (@ARGV[$arg] eq "-format") 
     {
     $FORMAT=@ARGV[$arg+1];
@@ -74,19 +89,18 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     }
 }
 
-#open indir
-opendir INDIR, "$INDIR";
-#keep only shots
-@shots = readdir INDIR;
-#@shots = grep { /P/ } readdir INDIR;
-closedir INDIR;
+if ($EXT eq "exr") {$GAMMA = "-gamma 2.2";} else {$GAMMA = "";}
+
+my @dirs = $INDIR;
+my @shots;
+find({ wanted => sub { push @shots, $_ } , no_chdir => 1 }, @dirs);
 
 foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots) 
     { 
-    if (-d "$CWD/$INDIR/$shot") #make sure it is a directory
+    if ((-d "$shot") && (index($shot, "snaps") == -1)) #make sure it is a directory
         {
-        #print "scanning shot : $shot\n";
-        opendir SHOT, "$INDIR/$shot";
+        print "scanning shot : $shot\n";
+        opendir SHOT, "$shot";
         @images = grep { /$EXT/ } readdir SHOT;
         closedir SHOT;
         %seen = ();
@@ -98,50 +112,60 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                 {
                 #$imaroot=@tmp[$#tmp-2];
                 $imaroot=join '.', @tmp[0 .. $#tmp-2];
-                #print ("$imaroot\n");
                 unless ($seen{$imaroot}) 
                     {
+                    #print ("    unique :  $imaroot\n");
                     $seen{$imaroot} = 1;
                     push(@uniq, $imaroot);
                     }
                 }
             }
-        }
-        foreach $root (@uniq) 
-            {
-            #reread image seq
-            opendir SHOT, "$INDIR/$shot";
-            @images = grep { /$root/ } readdir SHOT;
-            closedir SHOT;
-            $min=9999999;
-            $max=-1;
-            foreach $image (@images) 
-                { 
-                #print ("$ima\n");
-                @tmp=split(/\./,$image);
-                if ($#tmp >= 2)
+            foreach $root (@uniq) 
+                {
+                #print "     --> root : $root\n";
+                #reread image seq
+                opendir SHOT, "$shot";
+                @images = grep { /$root/ } readdir SHOT;
+                closedir SHOT;
+                $min=9999999;
+                $max=-1;
+                foreach $image (@images) 
+                    { 
+                    #print ("$ima\n");
+                    @tmp=split(/\./,$image);
+                    if ($#tmp >= 2)
+                        {
+                        $numframe=int($tmp[$#tmp-1]);
+                        #print ("$numframe\n");
+                        if ($numframe > $max) {$max = $numframe;}
+                        if ($numframe < $min) {$min = $numframe;}
+                        }
+                    }
+                $sshot=$shot;
+                $sshot=~ s/\.\///g;
+                $sshot=~ s/\//_/g;
+                if ($FORMAT eq "csv")
                     {
-                    $numframe=int($tmp[$#tmp-1]);
-                    #print ("$numframe\n");
-                    if ($numframe > $max) {$max = $numframe;}
-                    if ($numframe < $min) {$min = $numframe;}
+                    if ($max == $min)
+                        {
+                        print BOLD RED "$shot,$root,%04d,$EXT,$min,$max\n";print RESET;
+                        }
+                    else
+                        {
+                        print ("$shot,$root,%04d,$EXT,$min,$max\n");
+                        }
+                    }
+                if ($FORMAT eq "ffmpeg_prores")
+                {
+                if ($max == $min)
+                    {print BOLD RED "only one frame ... skipping\n";print RESET;}
+                else
+                    {
+                    $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot\_$root.mov";
+                    print ("$cmd\n");
+                    if ($EXECUTE) {system ($cmd);}
                     }
                 }
-            if ($FORMAT eq "csv")
-                {
-                print ("$shot,$root,%04d,$EXT,$min,$max\n");
-                }
-            if ($FORMAT eq "ffmpeg_prores")
-                {
-                $cmd = "ffmpeg -start_number $min -i $CWD/$INDIR/$shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$shot\_$root.mov";
-                print ("$cmd\n");
-                if ($EXECUTE) {system ($cmd);}
-                }
-            if ($FORMAT eq "ffmpeg_h264")
-                {
-                $cmd = "ffmpeg -start_number $min -i $CWD/$INDIR/$shot/$root.%04d.$EXT $H264CODEC $shot\_$root.mp4";
-                print ("$cmd\n");
-                if ($EXECUTE) {system ($cmd);}
-                }
             }
+        }
     }

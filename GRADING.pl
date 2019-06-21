@@ -27,13 +27,16 @@ if ($#ARGV == -1) {
 	print "-i imagein\n";
 	print "-odir dirout\n";
 	print "-BWfilms   [B&W films]        25x\n";
+    print "-FilterGradeCinematic         8x\n";
+    print "-FujiXtrans  [Fuji Xtrans]    6x\n";
 	print "-InstantC  [Instant consumer] 54x\n";
 	print "-InstantP  [Instant pro]      67x\n";
 	print "-NegativeC [Negative color]   12x\n";
 	print "-NegativeN [Negative new]     9x\n";
 	print "-NegativeO [Negative old]     11x\n";
-	print "-PictureFX [PictureFX]        9x\n";
+	print "-PictureFX [PictureFX]        19x\n";
 	print "-PrintF    [Print films]      12x\n";
+    print "-RocketStock [RocketStock]    35x\n";
 	print "-SlideC    [Slide color]      26x\n";
 	print "-Various   [Various]          62x\n";
 	print "-Tone      [TonePresets]      8x\n";
@@ -58,6 +61,16 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $BWfilms=1;
     print "grading for BWfilms ... \n";
+    }
+  if (@ARGV[$arg] eq "-FilterGradeCinematic") 
+    {
+    $FilterGradeCinematic=1;
+    print "grading for FilterGradeCinematic ... \n";
+    }
+  if (@ARGV[$arg] eq "-FujiXtrans") 
+    {
+    $FujiXtrans=1;
+    print "grading for FujiXtrans ... \n";
     }
   if (@ARGV[$arg] eq "-InstantC") 
     {
@@ -94,6 +107,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $PrintF=1;
     print "grading for PrintF ... \n";
     }
+  if (@ARGV[$arg] eq "-RocketStock") 
+    {
+    $RocketStock=1;
+    print "grading for RocketStock ... \n";
+    }
   if (@ARGV[$arg] eq "-SlideC") 
     {
     $SlideC=1;
@@ -122,7 +140,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "dev" || $userName eq "render")	#
+if ($userName eq "dev18" || $userName eq "render")	#
   {
   $GMIC="/usr/bin/gmic";
   }
@@ -162,6 +180,54 @@ if ($BWfilms || $ALL)
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
     $OP="-fx_emulate_film_bw $i,100,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($FilterGradeCinematic || $ALL)
+  {
+  $PRESETS=8;
+  $EXTENSION="FilterGradeCinematic";
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_emulate_film_filtergrade $i,100,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($FujiXtrans || $ALL)
+  {
+  $PRESETS=6;
+  $EXTENSION="FujiXtrans";
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_emulate_film_fujixtransii $i,100,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -299,7 +365,7 @@ if ($NegativeO || $ALL)
   
 if ($PictureFX || $ALL)
   {
-  $PRESETS=9;
+  $PRESETS=19;
   $EXTENSION="PictureFX";
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
@@ -354,6 +420,30 @@ if ($SlideC || $ALL)
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
     $OP="-fx_emulate_film_colorslide $i,100,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($RocketStock || $ALL)
+  {
+  $PRESETS=35;
+  $EXTENSION="RocketStock";
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_emulate_film_rocketstock $i,100,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {

@@ -39,6 +39,8 @@ $SHOT="";
 $CONTENTDIR="$CWD/originales";
 $CONTENT="ima";
 $IN_USE_SHOT=0;
+$FLOWDIR="$CWD/opticalflow";
+$CONTENTBLEND="5e-1";
 $DOEDGES=0;
 $EDGEDIR="$CWD/edges";
 $EDGES="edges";
@@ -65,7 +67,7 @@ $POOLING="avg";
 $OPTIMIZER="adam";   #adam,lbfgs
 $LEARNING_RATE=5;
 $INI_METHOD="image";  #image,random
-$TYPE="transfer";
+$TYPE="optical";
 $MODE="speed";
 #hyperparameters
 $NUMRES="2";
@@ -99,6 +101,12 @@ $GAMMA=0;
 $SATURATION=0;
 $DOCOLORTRANSFERT=0;
 $LCTMODE="pca";
+#reindex result
+$DOINDEX=0;
+$INDEXCOLOR=64;
+$INDEXMETHOD=1;
+$DITHERING=1;
+$INDEXROLL=5;
 $DOLOCALCONTRAST=1;
 $DOEQUALIZE=0;
 $EQUALIZELEVEL=256;
@@ -194,6 +202,8 @@ print AUTOCONF confstr(FSTEP);
 print AUTOCONF confstr(SHOT);
 print AUTOCONF confstr(CONTENTDIR);
 print AUTOCONF confstr(CONTENT);
+print AUTOCONF confstr(FLOWDIR);
+print AUTOCONF confstr(CONTENTBLEND);
 print AUTOCONF confstr(IN_USE_SHOT);
 print AUTOCONF confstr(DOEDGES);
 print AUTOCONF confstr(EDGEDIR);
@@ -276,6 +286,12 @@ print AUTOCONF "#0 : no transfert\n";
 print AUTOCONF "#1 : color_transfer\n";
 print AUTOCONF "#2 : hmap\n";
 print AUTOCONF "#3 : Neural-tools\n";
+print AUTOCONF "#reindex\n";
+print AUTOCONF confstr(DOINDEX);
+print AUTOCONF confstr(INDEXCOLOR);
+print AUTOCONF confstr(INDEXMETHOD);
+print AUTOCONF confstr(DITHERING);
+print AUTOCONF confstr(INDEXROLL);
 print AUTOCONF "#4 : ideepcolor\n";
 print AUTOCONF "#5 : index color\n";
 print AUTOCONF confstr(DOLOCALCONTRAST);
@@ -504,6 +520,8 @@ $CCONTENT=@tmp[0];
 for ($i=$FSTART ; $i <= $FEND ; $i=$i+$FSTEP)
 {
 $ii=sprintf("%04d",$i);
+$j=$i-1;
+$jj=sprintf("%04d",$j);
 #keyframes
 if (-e "$CONF.key")
     {
@@ -524,11 +542,15 @@ if ($IN_USE_SHOT)
     {
     $INCONTENT="$CONTENTDIR/$SHOT/$CONTENT.$ii.$EXTIN";
     $INEDGES  ="$EDGEDIR/$SHOT/$EDGES.$ii.$EXTEDGES";
+    $FLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.flo";
+    $FLOWWEIGHT="$FLOWDIR/$SHOT/dual/reliable_$ii\_$jj.pgm";
     }
 else
     {
     $INCONTENT="$CONTENTDIR/$CONTENT.$ii.$EXTIN";
     $INEDGES  ="$EDGEDIR/$EDGES.$ii.$EXTEDGES";
+    $FLOW="$FLOWDIR/dual/backward_$ii\_$jj.flo";
+    $FLOWWEIGHT="$FLOWDIR/dual/reliable_$ii\_$jj.pgm";
     }
 #reinit $ii if keyframe mode was on
 $ii=sprintf("%04d",$i);
@@ -540,6 +562,7 @@ $WEDGES    ="$WORKDIR/edges.$EXTOUT";
 $WNEURAL   ="$WORKDIR/neural.$EXTOUT";
 #output
 $FINALFRAME="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$ii.$EXTOUT";
+$PREVIOUSFRAME="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$jj.$EXTOUT";
 $LEVEL2="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS\_level2.$ii.$EXTOUT";
 $COLORT="$OOUTDIR/$CCONTENT\_$SSTYLE.$ii.$EXTOUT";
 
@@ -599,6 +622,13 @@ else
     print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
     verbose($cmd);
     system $cmd;
+        if ($DOINDEX)
+        {
+        $cmd="$GMIC $STYLEDIR/$STYLE -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR $LOG2";
+        verbose($cmd);
+        print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+        system $cmd;
+        }
     }
   if ($DOCOLORTRANSFERT == 4)
     {
@@ -639,8 +669,10 @@ if ($NOISESTRENGTH != 0)
   verbose($cmd);
   system $cmd;
   }
+  
+if ($i == $FSTART) {$TYPE="transfer"} else {$TYPE="optical"}
 #neural transfert --> $WNEURAL
-  $cmd="$QLUA $CNNMRF -gpu $GPU -learning_rate $LEARNING_RATE -optimizer $OPTIMIZER -pooling $POOLING -type $TYPE -backend cudnn -ini_method $INI_METHOD -mrf_confidence_threshold $MRFCONFIDENCE -num_res $NUMRES -num_iter $NUMITER -mrf_layers $MRFLAYERS -mrf_weight $MRFWEIGHT -content_layers $CONTENTLAYER -content_weight $CONTENTWEIGHT -content_name $WCOLOR -style_scale $STYLESCALE -style_name $STYLEDIR/$STYLE -max_size $SIZE -output_folder $WORKDIR -target_num_rotation $NUMROT -target_num_scale $NUMSCALE -model_file $MODEL -tv_weight $TVWEIGHT -mrf_patch_size $MRFPATCHSIZE -target_sample_stride $TARGETSTRIDE -source_sample_stride $SOURCESTRIDE $LOG2";
+  $cmd="$QLUA $CNNMRF -gpu $GPU -learning_rate $LEARNING_RATE -optimizer $OPTIMIZER -pooling $POOLING -type $TYPE -backend cudnn -ini_method $INI_METHOD -mrf_confidence_threshold $MRFCONFIDENCE -num_res $NUMRES -num_iter $NUMITER -mrf_layers $MRFLAYERS -mrf_weight $MRFWEIGHT -content_layers $CONTENTLAYER -content_weight $CONTENTWEIGHT -content_name $WCOLOR -style_scale $STYLESCALE -style_name $STYLEDIR/$STYLE -max_size $SIZE -output_folder $WORKDIR -target_num_rotation $NUMROT -target_num_scale $NUMSCALE -model_file $MODEL -tv_weight $TVWEIGHT -mrf_patch_size $MRFPATCHSIZE -target_sample_stride $TARGETSTRIDE -source_sample_stride $SOURCESTRIDE -flow $FLOW -previous $PREVIOUSFRAME -reliable $FLOWWEIGHT -contentblend $CONTENTBLEND $LOG2";
   if ($NORMALIZE_GRADIENT)
     {
     $cmd=$cmd." -normalize_gradients";

@@ -332,6 +332,35 @@ if ($userName eq "dev18")	#
 if ($VERBOSE) {$LOG1="";$LOG2="";}
 
 sub csv {
+
+if ($FSTART eq "auto" || $FEND eq "auto")
+    {
+    if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
+    print ("frames $FSTART $FEND dir $AUTODIR\n");
+    opendir DIR, "$AUTODIR";
+    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    closedir DIR;
+    $min=9999999;
+    $max=-1;
+    foreach $ima (@images) 
+        { 
+        #print ("$ima\n");
+        @tmp=split(/\./,$ima);
+        if ($#tmp >= 2)
+            {
+            $numframe=int($tmp[$#tmp-1]);
+            #print ("$numframe\n");
+            if ($numframe > $max) {$max = $numframe;}
+            if ($numframe < $min) {$min = $numframe;}
+            }
+        }
+    
+    if ($FSTART eq "auto") {$FSTART = $min;}
+    if ($FEND   eq "auto") {$FEND   = $max;}
+    print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
 for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
 {
 

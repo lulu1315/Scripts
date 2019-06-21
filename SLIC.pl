@@ -117,7 +117,7 @@ $BLENDMODE="multiply";
 $BLENDOPACITY=1;
 $INVERTSLIC=1;
 $CONNEX=4;
-$POTRACE=1;
+$DOPOTRACE=1;
 $BLACKLEVEL=.5;
 #
 $VERBOSE=0;
@@ -126,6 +126,10 @@ $GPU=0;
 $CSV=0;
 $LOG1=">/var/tmp/$scriptname.log";
 $LOG2="2>/var/tmp/$scriptname.log";
+#JSON
+$CAPACITY=500;
+$SKIP="-force";
+$FPT=5;
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -240,7 +244,7 @@ print AUTOCONF confstr(BLENDMODE);
 print AUTOCONF confstr(BLENDOPACITY);
 print AUTOCONF confstr(INVERTSLIC);
 print AUTOCONF confstr(CONNEX);
-print AUTOCONF confstr(POTRACE);
+print AUTOCONF confstr(DOPOTRACE);
 print AUTOCONF confstr(BLACKLEVEL);
 print AUTOCONF confstr(CONNEX);
 print AUTOCONF "#\n";
@@ -337,10 +341,41 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     print "csv file : $CSVFILE\n";
     $CSV=1;
     }
+  if (@ARGV[$arg] eq "-shot") 
+    {
+    $SHOT=@ARGV[$arg+1];
+    print "shotname : $SHOT\n";
+    }
+  if (@ARGV[$arg] eq "-json") 
+    {
+    if ($CSV)
+        {
+        open (CSV , "$CSVFILE");
+        while ($line=<CSV>)
+            {
+            chop $line;
+            @line=split(/,/,$line);
+            $SHOT=@line[0];
+            $FSTART=@line[3];
+            $FEND=@line[4];
+            $LENGTH=@line[5];   
+            $process=@line[6];
+            if ($process)
+                {
+                json();
+                }
+            }
+        }
+        else
+        {
+        json();
+        }
+    exit;
+    }
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
+if ($userName eq "lulu" || $userName eq "dev")	#
   {
   $GMIC="/usr/bin/gmic";
   $SUPERPIX="/shared/foss/superpixel-benchmark/bin";
@@ -349,7 +384,7 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
   $POTRACE="/usr/bin/potrace";
   }
   
-if ($userName eq "dev18")	#
+if ($userName eq "dev18" || $userName eq "render")	#
   {
   $GMIC="/usr/bin/gmic";
   $SUPERPIX="/shared/foss-18/superpixel-benchmark/bin";
@@ -416,6 +451,7 @@ else
 
 $OOUT_C="$OOUTDIR/$OUT\_contour.$ii.$EXTOUT";
 $OOUT_M="$OOUTDIR/$OUT\_mean.$ii.$EXTOUT";
+$OOUT_R="$OOUTDIR/$OUT\_random.$ii.$EXTOUT";
 $OOUT_COMPO="$OOUTDIR/$OUT\_compo.$ii.$EXTOUT";
 $OOUT_HINT="$OOUTDIR/$OUT\_hint.$ii.$EXTOUT";
 
@@ -446,7 +482,7 @@ else {
         {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} 
     else {$GMIC3="";}
     if ($SIZE) 
-        {$GMIC4="-resize2dy $SIZE,5";} 
+        {$GMIC4="-resize2dx $SIZE,5";} 
     else {$GMIC4="";}
     $cmd="$GMIC $IIN $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $WORKDIR/$I.png $LOG2";
     verbose($cmd);
@@ -457,7 +493,7 @@ else {
   #
   if ($METHOD eq "slic")
     {
-    $cmd="$SUPERPIX/slic_cli $IIN --oc $OOUT_C --om $OOUT_M --superpixels $SUPERPIXELS --compactness $COMPACTNESS --iterations $ITERATIONS --perturb-seeds $PERTURBSEEDS";
+    $cmd="$SUPERPIX/slic_cli $IIN --oc $OOUT_C --om $OOUT_M --or $OOUT_R --superpixels $SUPERPIXELS --compactness $COMPACTNESS --iterations $ITERATIONS --perturb-seeds $PERTURBSEEDS";
     verbose($cmd);
     print("--------> doing slic [super:$SUPERPIXELS compact:$COMPACTNESS iter:$ITERATIONS perturbseeds:$PERTURBSEEDS]\n");
     system $cmd;
@@ -601,7 +637,7 @@ else {
   print("--------> hint\n");
   system $cmd;
   #potrace
-  if ($POTRACE)
+  if ($DOPOTRACE)
     {
     $I++;$POUT="$WORKDIR/$I.pgm";
     $cmd="$GMIC -i $OOUT_C -o $POUT $LOG2";
@@ -678,6 +714,47 @@ else
   csv();
   }
   
+sub json {
+$CMD="SLIC";
+$FRAMESINC=1;
+$PARSER="perl";
+$SERVICE="perl";
+$OFFLINE="true";
+
+$WORKINGDIR=$CWD;
+$BLOCKNAME="$OUT\_$SHOT";
+$JOBNAME="$scriptname\_$OUT\_$SHOT";
+    
+if ($OUT_USE_SHOT)
+    {
+    $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP -shot $SHOT";
+    $FILES="$OUTDIR/$SHOT/$OUT\_contour.\@####\@.$EXTOUT";
+    }
+else
+    {
+    $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP";
+    $FILES="$OUTDIR/$OUT\_contour.\@####\@.$EXTOUT";
+    }
+$HOSTNAME = `hostname -s`;
+chop $HOSTNAME;
+$USERNAME =  $ENV{'USER'}; 
+
+$JSON="{\"job\":{\"blocks\":[{\"command\":\"$COMMAND\",\"files\":[\"$FILES\"],\"flags\":1,\"frame_first\":$FSTART,\"frame_last\":$FEND,\"frames_inc\":1,\"frames_per_task\":$FPT,\"name\":\"$BLOCKNAME\",\"parser\":\"$PARSER\",\"service\":\"$SERVICE\",\"capacity\":$CAPACITY,\"working_directory\":\"$WORKINGDIR\"}],\"host_name\":\"$HOSTNAME\",\"name\":\"$JOBNAME\",\"offline\":$OFFLINE,\"user_name\":\"$USERNAME\"}}";
+
+print "$JSON\n";;
+$JSONFILE="./cgru.json";
+open( JSON , '>', $JSONFILE);
+print JSON $JSON;
+close JSON;
+
+$sendcmd="afcmd json send $JSONFILE";
+print "$sendcmd\n";
+system $sendcmd;
+$clean="rm $JSONFILE";
+print "$clean\n";
+system $clean;
+}
+
 #gestion des keyframes
 sub keyframe {
     @keyvals = split(/,/,$_[0]);

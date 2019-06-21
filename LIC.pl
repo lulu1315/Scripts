@@ -5,8 +5,11 @@ use Env;
 use Term::ANSIColor qw(:constants);
 use Image::Magick;
 #http://www.imagemagick.org/script/command-line-options.php
+$HOSTNAME=`cat /etc/hostname`;chop $HOSTNAME;
+$KDEVERSION=`lsb_release -c -s`;chop $KDEVERSION;
+$GPUS=`nvidia-smi -L | wc -l`;chop $GPUS;
+$GPUTYPE=`nvidia-smi -q -i 0 | grep "Product Name" | cut -d':' -f2 | cut -c 2-`;chop $GPUTYPE;
 $script = $0;
-print BOLD BLUE "script : $script\n";print RESET;
 @tmp=split(/\//,$script);
 $scriptname=$tmp[$#tmp];
 @tmp=split(/\./,$scriptname);
@@ -15,7 +18,15 @@ $CWD=getcwd;
 #get project name
 @tmp=split(/\//,$CWD);
 $PROJECT=$tmp[$#tmp];
+$userName =  $ENV{'USER'}; 
+print BOLD BLUE "----------------------\n";print RESET;
+print BOLD BLUE "user    : $userName\n";print RESET;
+print BOLD BLUE "host    : $HOSTNAME\n";print RESET;
+print BOLD BLUE "kde     : $KDEVERSION\n";print RESET;
+print BOLD BLUE "gpu     : $GPUTYPE (x$GPUS)\n";print RESET;
+print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
+print BOLD BLUE "----------------------\n";print RESET;
 
 #defaults
 $FSTART="auto";
@@ -25,26 +36,15 @@ $INDIR="$CWD/originales";
 $IN="ima";
 $IN_USE_SHOT=0;
 $OUTDIR="$CWD/$scriptname";
-$OUT="$scriptname";
+$OUT="ima";
 $OUT_USE_SHOT=0;
 $ZEROPAD=1;
 $FORCE=0;
-$EXT="png";
-$EXTIN="png";
+$EXTIN="exr";
 $EXTOUT="png";
-#preprocess
-$SIZE=0;
-$DOLOCALCONTRAST=0;
-$ROLLING=0;
-$BRIGHTNESS=0;
-$CONTRAST=0;
-$GAMMA=0;
-$SATURATION=0;
+$ITER=10;
+$NOISEUPSAMPLE=1;
 #
-$BLACKLEVEL=.1;
-$OUTSMOOTH=0;
-#
-$DXF=0;
 $VERBOSE=0;
 $CLEAN=1;
 $GPU=0;
@@ -87,25 +87,15 @@ print AUTOCONF confstr(OUT);
 print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
-print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(EXTIN);
 print AUTOCONF confstr(EXTOUT);
-print AUTOCONF "#preprocess\n";
-print AUTOCONF confstr(SIZE);
-print AUTOCONF confstr(DOLOCALCONTRAST);
-print AUTOCONF confstr(ROLLING);
-print AUTOCONF confstr(BRIGHTNESS);
-print AUTOCONF confstr(CONTRAST);
-print AUTOCONF confstr(GAMMA);
-print AUTOCONF confstr(SATURATION);
-print AUTOCONF "#potrace\n";
-print AUTOCONF confstr(BLACKLEVEL);
-print AUTOCONF confstr(OUTSMOOTH);
+print AUTOCONF confstr(ITER);
+print AUTOCONF confstr(NOISEUPSAMPLE);
 print AUTOCONF "#misc\n";
-print AUTOCONF confstr(DXF);
 print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(CLEAN);
 print AUTOCONF confstr(GPU);
+print AUTOCONF confstr(CSV);
 print AUTOCONF "1\n";
 }
 
@@ -202,20 +192,19 @@ $userName =  $ENV{'USER'};
 if ($userName eq "lulu" || $userName eq "dev18" || $userName eq "render")	#
   {
   $GMIC="/usr/bin/gmic";
-  $POTRACE="/usr/bin/potrace";
+  $LIC="/shared/foss-18/Coherent-Line-Drawing/build/LIC-cli";
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}
 
 sub csv {
-
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
     if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
     print ("frames $FSTART $FEND dir $AUTODIR\n");
     opendir DIR, "$AUTODIR";
-    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    @images = grep { /$IN/ && /$EXTIN/ } readdir DIR;
     closedir DIR;
     $min=9999999;
     $max=-1;
@@ -241,7 +230,6 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("seq boundary : $FIRSTFRAME $LASTFRAME\n");
     }
     
-    
 for ($i = $FSTART ;$i <= $FEND;$i++)
 {
 $ii=sprintf("%04d",$i);
@@ -258,7 +246,6 @@ if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
     $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
-    $OOUTDXF="$OOUTDIR/$OUT.$ii.dxf";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
@@ -266,11 +253,10 @@ else
     {
     $OOUTDIR="$OUTDIR";
     $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
-    $OOUTDXF="$OOUTDIR/$OUT.$ii.dxf";
     }
 
 if (-e $OOUT && !$FORCE)
-   {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
+   {print BOLD RED "\nframe $OOUT exists ... skipping\n";print RESET;}
 else {
   #touch file
   $touchcmd="touch $OOUT";
@@ -280,69 +266,14 @@ else {
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
-  #workdir
-  $WORKDIR="$OOUTDIR/w$ii";
-  if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
-  #preprocess
-  $I=1;
-  if ($DOLOCALCONTRAST) 
-        {$GMIC1="-fx_LCE[0] 80,0.5,1,1,0,0";} 
-    else {$GMIC1="";}
-    if ($ROLLING) 
-        {$GMIC2="-fx_sharp_abstract $ROLLING,10,0.5,0,0";} 
-    else {$GMIC2="";}
-    if ($BRIGHTNESS || $CONTRAST || $GAMMA || $SATURATION) 
-        {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} 
-    else {$GMIC3="";}
-    if ($SIZE) 
-        {$GMIC4="-resize2dx $SIZE,5";} 
-    else {$GMIC4="";}
-    if ($EXTIN eq "exr") 
-        {$GMIC5="-n 0,255";} 
-    else {$GMIC5="";}
-  $cmd="$GMIC -i $IIN $GMIC5 $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $WORKDIR/$I.pgm $LOG2";
+  $cmd="$LIC $IIN $OOUT $ITER $NOISEUPSAMPLE";
   verbose($cmd);
-  print("--------> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
-  system $cmd;
-  #potrace
-  $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
-  $cmd="$POTRACE $PIN -o $POUT -g -k $BLACKLEVEL";
-  verbose($cmd);
-  print("--------> potrace [blacklevel:$BLACKLEVEL]\n");
-  system $cmd;
-  #dxf
-  if ($DXF)
-    {
-    $cmd="$POTRACE $PIN -o $OOUTDXF -b dxf -k $BLACKLEVEL";
-    verbose($cmd);
-    print("--------> potrace dxf [blacklevel:$BLACKLEVEL]\n");
-    system $cmd;
-    }
-  #bug potrace
-  $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
-  $cmd="convert $PIN $POUT";
-  verbose($cmd);
-  print("--------> potrace bug\n");
-  system $cmd;
-  #
-  if ($OUTSMOOTH) 
-    {$GMIC1="-fx_dreamsmooth 10,0,1,1,0,0.8,0,24,0";} else {$GMIC1="";}
-  $cmd="$GMIC $POUT -to_colormode 3 $GMIC1 -o $OOUT $LOG2";
-  verbose($cmd);
-  print("--------> output [smooth:$OUTSMOOTH]\n");
   system $cmd;
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-  #-----------------------------#
   #afanasy parsing format
   print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
-  if ($CLEAN)
-    {
-    $cleancmd="rm -r $WORKDIR";
-    verbose($cleancmd);
-    system $cleancmd;
-    }
   }
 }
 }

@@ -63,11 +63,11 @@ $GAMMA=0;
 $SATURATION=0;
 $SIZE=0;
 #
-$ETFKERNELSIZE=5;
-$ETFITERATIONS=5;
+$ETFKERNELSIZE=15;
+$ETFITERATIONS=1;
 #Coherent Line Drawing
-$CLDFDOGITERATION=3;
-$CLDSIGMAM=5;
+$CLDFDOGITERATION=1;
+$CLDSIGMAM=2;
 $CLDSIGMAC=1;
 $CLDRHO=.995;
 $CLDTAU=.99;
@@ -82,7 +82,6 @@ $DESPECKLETOLERANCE=30;
 $INVFINAL=0;
 #
 $FORCE=0;
-
 $VERBOSE=0;
 $CSV=0;
 $CLEAN=1;
@@ -92,7 +91,7 @@ $PARAMS="";
 #JSON
 $CAPACITY=500;
 $SKIP="-force";
-$FPT=5;
+$FPT=2;
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -172,6 +171,10 @@ print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(CLEAN);
 print AUTOCONF confstr(PARAMS);
+print AUTOCONF "#json - submit to afanasy\n";
+print AUTOCONF confstr(CAPACITY);
+print AUTOCONF confstr(SKIP);
+print AUTOCONF confstr(FPT);
 print AUTOCONF "1";
 }
 
@@ -349,7 +352,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
+if ($userName eq "lulu" || $userName eq "dev")	#
   {
   #$GMIC="/usr/bin/gmic";
   $GMIC="/shared/foss/gmic/src/gmic";
@@ -361,7 +364,7 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
   $CLDOFLOW="/shared/foss/Coherent-Line-Drawing/build/CLD-oflow-cli";
   }
   
-if ($userName eq "dev18")	#
+if ($userName eq "dev18"  || $userName eq "render")	#
   {
   $GMIC="/usr/bin/gmic";
   $POTRACE="/usr/bin/potrace";
@@ -524,14 +527,6 @@ else {
     print("--------> dilate_circ [dilate:$DILATE]\n");
     system $cmd;
     }
-  if ($EDGESMOOTH) 
-    {
-    $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
-    $cmd="$GMIC $PIN -fx_dreamsmooth 10,0,1,0.8,0,0.8,0,24,0 -o $POUT $LOG2";
-    verbose($cmd);
-    print("--------> dreamsmooth\n");
-    system $cmd;
-    }
   if ($DOPOTRACE)
     {
     #convert to pgm
@@ -557,6 +552,14 @@ else {
     #--> output
     $cmd="$GMIC -i $POUT -to_colormode 3 -o $OOUT $LOG2";
     verbose($cmd);
+    system $cmd;
+    }
+  if ($EDGESMOOTH) 
+    {
+    #$PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+    $cmd="$GMIC $OOUT -fx_dreamsmooth 10,0,1,1,0,0.8,0,24,0 -o $OOUT $LOG2";
+    verbose($cmd);
+    print("--------> dreamsmooth\n");
     system $cmd;
     }
   if ($DODESPECKLE) 
@@ -676,7 +679,7 @@ sub lapse  {
 }
 
 sub json {
-$CMD="GMIC";
+$CMD="COHERENT";
 $FRAMESINC=1;
 $PARSER="perl";
 $SERVICE="perl";
@@ -689,12 +692,12 @@ $JOBNAME="$scriptname\_$OUT\_$SHOT";
 if ($OUT_USE_SHOT)
     {
     $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP -shot $SHOT";
-    $FILES="$OUTDIR/$SHOT/$OUT.\@####\@.$EXTOUT";
+    $FILES="$OUTDIR/$SHOT/$CLDOUT$PARAMS.\@####\@.$EXT";
     }
 else
     {
     $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP";
-    $FILES="$OUTDIR/$OUT.\@####\@.$EXTOUT";
+    $FILES="$OUTDIR/$CLDOUT$PARAMS.\@####\@.$EXT";
     }
 $HOSTNAME = `hostname -s`;
 chop $HOSTNAME;

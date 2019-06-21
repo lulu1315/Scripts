@@ -4,6 +4,8 @@ use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
 use Image::Magick;
+use POSIX qw/ceil/;
+use List::Util qw[min max];
 #http://www.imagemagick.org/script/command-line-options.php
 $HOSTNAME=`cat /etc/hostname`;chop $HOSTNAME;
 $KDEVERSION=`lsb_release -c -s`;chop $KDEVERSION;
@@ -31,9 +33,12 @@ print BOLD BLUE "----------------------\n";print RESET;
 #defaults
 $FSTART="auto";
 $FEND="auto";
+$FSTEP=1;
 $ITERS=1;
+$INTERVAL=10;
 $SHOT="";
 $IN_USE_SHOT=0;
+$PROC_USE_SHOT=0;
 $OUT_USE_SHOT=0;
 $INDIR="$CWD/originales";
 $IN="ima";
@@ -45,7 +50,10 @@ $ZEROPAD=1;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
-
+$CLEAN=1;
+#log
+$LOG1=" > /var/tmp/opticalflow.log";
+$LOG2=" 2> /var/tmp/opticalflow.log";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -73,9 +81,12 @@ open (AUTOCONF,">","$scriptname\_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
+print AUTOCONF confstr(FSTEP);
 print AUTOCONF confstr(ITERS);
+print AUTOCONF confstr(INTERVAL);
 print AUTOCONF confstr(SHOT);
 print AUTOCONF confstr(IN_USE_SHOT);
+print AUTOCONF confstr(PROC_USE_SHOT);
 print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(INDIR);
 print AUTOCONF confstr(IN);
@@ -87,6 +98,7 @@ print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
+print AUTOCONF confstr(CLEAN);
 print AUTOCONF "1\n";
 }
 
@@ -228,7 +240,7 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     }
   
 if ($IN_USE_SHOT) {$IINDIR="$INDIR/$SHOT";} else {$IINDIR="$INDIR";}
-if ($IN_USE_SHOT) {$PPROCDIR="$PROCDIR/$SHOT";} else {$PPROCDIR="$PROCDIR";}
+if ($PROC_USE_SHOT) {$PPROCDIR="$PROCDIR/$SHOT";} else {$PPROCDIR="$PROCDIR";}
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
@@ -236,26 +248,74 @@ if ($OUT_USE_SHOT)
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
 else {$OOUTDIR="$OUTDIR";}
-    
-for ($i = 1 ;$i <= $ITERS;$i++)
-{
-print ("iteration : $i\n");
-$j=$i-1;
+  
+$pid=$$;
+$WORKDIR="$OOUTDIR/w_$pid";
+if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
 
-if ($i==1) 
-    {
+$LOOPS=(($FEND - $FSTART +1)/$INTERVAL);
+$LLOOPS=ceil($LOOPS);
+print ("loops : $LOOPS \n");
+$OOUT="$OUT\_iter$i";
+
+for ($i = 0 ;$i < $LLOOPS;$i++)
+{
+    $FFSTART=($FSTART-1)+($i*$INTERVAL+1);
+    $FFEND=min($FFSTART+$INTERVAL,$FEND);
+    print ("i : $i s/e : $FFSTART/$FFEND \n");
+    #forward consistency
     $PPROC=$PROC;
-    $OOUT="$OUT\_iter$i";
-    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $PPROCDIR -processed_name $PPROC -output_dir $OOUTDIR -output_name $OOUT -fstart $FSTART -fend $FEND";
+    $FSTEP=1;
+    $OOOUT="forward";
+    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $PPROCDIR -processed_name $PPROC -output_dir $WORKDIR -output_name $OOOUT -fstart $FFSTART -fend $FFEND -fstep $FSTEP";
     verbose($cmd);
     system($cmd);
-    } 
-else 
+    #backward consistency
+    $PPROC=$PROC;
+    $FSTEP=-1;
+    $OOOUT="backward";
+    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $PPROCDIR -processed_name $PPROC -output_dir $WORKDIR -output_name $OOOUT -fstart $FFEND -fend $FFSTART -fstep $FSTEP";
+    verbose($cmd);
+    system($cmd);
+    
+    for ($j = $FFSTART ;$j <= $FFEND;$j++)
     {
-    $PPROC="$OUT\_iter$j";
-    $OOUT="$OUT\_iter$i";
-    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $OOUTDIR -processed_name $PPROC -output_dir $OOUTDIR -output_name $OOUT -fstart $FSTART -fend $FEND";
-    verbose($cmd);
-    system($cmd);
-    } 
+        $jj=sprintf("%04d",$j);
+        $BLEND=($j-($i*($INTERVAL))-1)/($FFEND-$FFSTART);
+        $NBLEND=1-$BLEND;
+        print ("$j blender : $BLEND\n");
+        $cmd="gmic $WORKDIR/forward.$jj.$EXT $WORKDIR/backward.$jj.$EXT -mul[0] $NBLEND -mul[1] $BLEND -blend add -o $OOUTDIR/$OOUT.$jj.$EXT $LOG2";
+        verbose($cmd);
+        system($cmd);
+    }
 }
+
+#for ($i = 1 ;$i <= $ITERS;$i++)
+#{
+#print ("iteration : $i\n");
+#$j=$i-1;
+#
+#if ($i==1) 
+#    {
+#    $PPROC=$PROC;
+#    $OOUT="$OUT\_iter$i";
+#    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $PPROCDIR -processed_name $PPROC -output_dir $OOUTDIR -output_name $OOUT -fstart $FSTART -fend $FEND -fstep $FSTEP";
+#    verbose($cmd);
+#    system($cmd);
+#    } 
+#else 
+#    {
+#    $PPROC="$OUT\_iter$j";
+#    $OOUT="$OUT\_iter$i";
+#    $cmd="$CONSISTENCY -original_dir $IINDIR -original_name $IN -processed_dir $OOUTDIR -processed_name $PPROC -output_dir $OOUTDIR -output_name $OOUT -fstart $FSTART -fend $FEND";
+#    verbose($cmd);
+#    system($cmd);
+#    } 
+#}
+
+if ($CLEAN)
+    {
+    $cleancmd="rm -r $WORKDIR";
+    verbose($cleancmd);
+    system $cleancmd;
+    }

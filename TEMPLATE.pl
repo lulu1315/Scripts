@@ -29,8 +29,8 @@ print BOLD BLUE "project : $PROJECT\n";print RESET;
 print BOLD BLUE "----------------------\n";print RESET;
 
 #defaults
-$FSTART=1;
-$FEND=100;
+$FSTART="auto";
+$FEND="auto";
 $SHOT="";
 $INDIR="$CWD/originales";
 $IN="ima";
@@ -140,7 +140,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $CONF=@ARGV[$arg+1];
     print "using conf file $CONF\n";
-    require $CONF;
+    require "./$CONF";
     if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
     else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
@@ -210,6 +210,39 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
 if ($VERBOSE) {$LOG1="";$LOG2="";}
 
 sub csv {
+
+#auto frames
+if ($FSTART eq "auto" || $FEND eq "auto")
+    {
+    if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
+    print ("frames $FSTART $FEND dir $AUTODIR\n");
+    opendir DIR, "$AUTODIR";
+    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    closedir DIR;
+    $min=9999999;
+    $max=-1;
+    foreach $ima (@images) 
+        { 
+        #print ("$ima\n");
+        @tmp=split(/\./,$ima);
+        if ($#tmp >= 2)
+            {
+            $numframe=int($tmp[$#tmp-1]);
+            #print ("$numframe\n");
+            if ($numframe > $max) {$max = $numframe;}
+            if ($numframe < $min) {$min = $numframe;}
+            }
+        }
+    
+    if ($FSTART eq "auto") {$FSTART = $min;}
+    if ($FEND   eq "auto") {$FEND   = $max;}
+    print ("auto  seq : $min $max\n");
+    $FIRSTFRAME=$min;
+    $LASTFRAME=$max;
+    print ("final seq    : $FSTART $FEND\n");
+    print ("seq boundary : $FIRSTFRAME $LASTFRAME\n");
+    }
+    
 for ($i = $FSTART ;$i <= $FEND;$i++)
 {
 $ii=sprintf("%04d",$i);

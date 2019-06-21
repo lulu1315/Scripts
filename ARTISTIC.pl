@@ -32,6 +32,8 @@ print BOLD BLUE "----------------------\n";print RESET;
 $FSTART="auto";
 $FEND="auto";
 $SHOT="";
+$IN_USE_SHOT=0;
+$OUT_USE_SHOT=0;
 $CONTENTDIR="$CWD/originales";
 $CONTENT="ima";
 $FLOWDIR="$CWD/opticalflow";
@@ -40,8 +42,14 @@ $FLOWWEIGHT="reliable";
 $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
 $STYLESCALE="5e-1";
-$DOCOLORTRANSFERT=0;
+$DOCOLORTRANSFERT=3;
 $LCTMODE="pca";
+#reindex result
+$DOINDEX=0;
+$INDEXCOLOR=64;
+$INDEXMETHOD=1;
+$DITHERING=1;
+$INDEXROLL=5;
 $DOEDGES=0;
 $EDGEDIR="$CWD/edges";
 $EDGES="edges";
@@ -60,13 +68,29 @@ $TANGENT="tangent";
 $TANGENTBOOSTER=1;
 $OUTDIR="$CWD/artistic";
 $OUTPUT_SIZE=0;
+#
+$SHAVE=0;
+$SHAVEX=$SHAVE;
+$SHAVEY=$SHAVE;
+$EXPAND=0;
+$EXPANDX=$EXPAND;
+$EXPANDY=$EXPAND;
+#preprocess
+$DOLOCALCONTRAST=1;
+$EQUALIZE=0;
+$EQUALIZEMIN="20%";
+$EQUALIZEMAX="80%";
+$BRIGHTNESS=0;
+$CONTRAST=0;
+$GAMMA=0;
+$SATURATION=0;
+$NOISE=0;
+#
 $ZEROPAD=1;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
-$PROCESS=0;
 $FORCE=0;
-#0:light pass 1:multipass 2:mono pass
 #network
 $NUMITERATIONS="2000,1000";
 $STYLEWEIGHT=2000;
@@ -115,6 +139,8 @@ print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
 print AUTOCONF confstr(SHOT);
+print AUTOCONF confstr(IN_USE_SHOT);
+print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(CONTENTDIR);
 print AUTOCONF confstr(CONTENT);
 print AUTOCONF confstr(FLOWDIR);
@@ -124,11 +150,14 @@ print AUTOCONF confstr(STYLE);
 print AUTOCONF confstr(STYLESCALE);
 print AUTOCONF confstr(DOCOLORTRANSFERT);
 print AUTOCONF "#0 : no transfert\n";
-print AUTOCONF "#1 : color_transfer NOT IMPLEMENTED\n";
-print AUTOCONF "#2 : hmap NOT IMPLEMENTED\n";
 print AUTOCONF "#3 : Neural-tools\n";
-print AUTOCONF "#4 : ideepcolor NOT IMPLEMENTED\n";
-print AUTOCONF "#5 : index color\n";
+print AUTOCONF "#    --index color\n";
+print AUTOCONF confstr(DOINDEX);
+print AUTOCONF confstr(INDEXCOLOR);
+print AUTOCONF confstr(INDEXMETHOD);
+print AUTOCONF confstr(DITHERING);
+print AUTOCONF confstr(INDEXROLL);
+print AUTOCONF "#edges\n";
 print AUTOCONF confstr(DOEDGES);
 print AUTOCONF confstr(EDGEDIR);
 print AUTOCONF confstr(EDGES);
@@ -137,6 +166,7 @@ print AUTOCONF confstr(EDGESMOOTH);
 print AUTOCONF confstr(EDGESOPACITY);
 print AUTOCONF confstr(EDGESMODE);
 print AUTOCONF confstr(EDGESINVERT);
+print AUTOCONF "#gradient/tangent\n";
 print AUTOCONF confstr(DOGRADIENT);
 print AUTOCONF confstr(GRADIENTDIR);
 print AUTOCONF confstr(GRADIENT);
@@ -147,19 +177,34 @@ print AUTOCONF confstr(TANGENT);
 print AUTOCONF confstr(TANGENTBOOSTER);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUTPUT_SIZE);
+print AUTOCONF confstr(SHAVE);
+print AUTOCONF "\$SHAVEX=\$SHAVE\;\n";
+print AUTOCONF "\$SHAVEY=\$SHAVE\;\n";
+print AUTOCONF confstr(EXPAND);
+print AUTOCONF "\$EXPANDX=\$EXPAND\;\n";
+print AUTOCONF "\$EXPANDY=\$EXPAND\;\n";
+print AUTOCONF "#preprocess\n";
+print AUTOCONF confstr(CONTENTBLUR);
+print AUTOCONF confstr(DOLOCALCONTRAST);
+print AUTOCONF confstr(EQUALIZE);
+print AUTOCONF confstr(EQUALIZEMIN);
+print AUTOCONF confstr(EQUALIZEMAX);
+print AUTOCONF confstr(BRIGHTNESS);
+print AUTOCONF confstr(CONTRAST);
+print AUTOCONF confstr(GAMMA);
+print AUTOCONF confstr(SATURATION);
+print AUTOCONF confstr(NOISE);
+print AUTOCONF "#\n";
 print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(FORCE);
-print AUTOCONF confstr(PROCESS);
-print AUTOCONF "#0:light 1:multipass 2:single pass\n";
 print AUTOCONF "#network\n";
 print AUTOCONF confstr(NUMITERATIONS);
 print AUTOCONF confstr(STYLEWEIGHT);
 print AUTOCONF confstr(CONTENTWEIGHT);
 print AUTOCONF confstr(CONTENTBLEND);
-print AUTOCONF confstr(CONTENTBLUR);
 print AUTOCONF confstr(TEMPORALWEIGHT);
 print AUTOCONF confstr(TVWEIGHT);
 print AUTOCONF confstr(POOLING);
@@ -170,7 +215,9 @@ print AUTOCONF confstr(SEED);
 print AUTOCONF confstr(INIT);
 print AUTOCONF confstr(CSV);
 print AUTOCONF confstr(GPU);
-print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_\$POOLING\\_\$OPTIMIZER\\_ng\$NORMALIZE_GRADIENT\"\;\n";
+print AUTOCONF "\@tmp=split(/,/,\$NUMITERATIONS)\;\n";
+print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_iter\@tmp[0]\"\;\n";
+#print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_\$POOLING\\_\$OPTIMIZER\\_ng\$NORMALIZE_GRADIENT\"\;\n";
 print AUTOCONF "1\n";
 }
 
@@ -275,10 +322,12 @@ if ($userName eq "dev18") #
   {
   $GMIC="/usr/bin/gmic";
   $LUA="/shared/foss-18/artistic-videos/artistic_video_dev.lua";
-  $LIGHTLUA="/shared/foss-18/artistic-videos/artistic_video_light.lua";
+  $LIGHTLUA="/shared/foss-18/artistic-videos/artistic_video_light_v2.lua";
   $MULTILUA="/shared/foss-18/artistic-videos/artistic_video_multiPass_dev.lua";
   if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
-  else  {$TH="/shared/foss-18/torch/install/bin/th";}
+  if ($HOSTNAME =~ "hp") {$TH="/shared/foss-18/torch/install/bin/th";}
+  if ($HOSTNAME =~ "s005" || $HOSTNAME =~ "s006") {$TH="/shared/foss-18/torch_GTX1080/install/bin/th";}
+  if ($HOSTNAME =~ "s001" || $HOSTNAME =~ "s002" || $HOSTNAME =~ "s003" || $HOSTNAME =~ "etalo") {$TH="/shared/foss-18/torch/install/bin/th";}
   $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
   $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
   $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
@@ -297,7 +346,7 @@ sub neural {
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
-    $AUTODIR="$CONTENTDIR/$SHOT";
+    if ($IN_USE_SHOT) {$AUTODIR="$CONTENTDIR/$SHOT";} else {$AUTODIR="$CONTENTDIR";}
     print ("frames $FSTART $FEND dir $AUTODIR\n");
     opendir DIR, "$AUTODIR";
     @images = grep { /$IN/ && /$EXT/ } readdir DIR;
@@ -335,7 +384,15 @@ $CCONTENT=@tmp[0];
 
 $NUMIMAGES=$FEND-$FSTART+1;
 
-$CONTENTPATTERN="$CONTENTDIR/$SHOT/$CONTENT.%04d.$EXT";
+if ($IN_USE_SHOT)
+    {
+    $CONTENTPATTERN="$CONTENTDIR/$SHOT/$CONTENT.%04d.$EXT";
+    }
+else
+    {
+    $CONTENTPATTERN="$CONTENTDIR/$CONTENT.%04d.$EXT";
+    }
+
 $EDGESPATTERN="$EDGEDIR/$SHOT/$EDGES.%04d.$EXT";
 $FLOWPATTERN="$FLOWDIR/$SHOT/dual/backward_[\%04d]_{\%04d}.flo";
 $FLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
@@ -360,48 +417,30 @@ if (-e "$OOUTDIR/$OUT" && !$FORCE)
    {print BOLD RED "sequence $OUT exists ... skipping\n";print RESET;}
 else
   {
-print BOLD YELLOW "Output ----> $OUT [$NUMIMAGES images] Shot : $SHOT\n";print RESET;
-if (-e "$OOUTDIR") 
-    {print "$OOUTDIR already exists\n";}
-else 
-    {$cmd="mkdir $OOUTDIR";system $cmd;}
+    print BOLD YELLOW "Output ----> $OUT [$NUMIMAGES images] Shot : $SHOT\n";print RESET;
+    if (-e "$OOUTDIR") 
+        {print "$OOUTDIR already exists\n";}
+    else 
+        {$cmd="mkdir $OOUTDIR";system $cmd;}
     
-$touchcmd="touch $OOUTDIR/$OUT";
-system $touchcmd;
+    $touchcmd="touch $OOUTDIR/$OUT";
+    system $touchcmd;
 
-if ($PROCESS == 0)
-{
-$cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR";
-if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
-if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
-if ($DOEDGES) 
-    {
-    $cmd=$cmd." -doedges -edges_pattern $EDGESPATTERN -edgesopacity $EDGESOPACITY -edgesmode $EDGESMODE -edgedilate $EDGEDILATE";
-    if ($EDGESMOOTH) {$cmd=$cmd." -edgesmooth";}
-    if ($EDGESINVERT) {$cmd=$cmd." -edgesinvert";}
+    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE";
+    if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
+    if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
+    if ($DOINDEX) {$cmd=$cmd." -doindex $DOINDEX -indexcolor $INDEXCOLOR -indexmethod $INDEXMETHOD -dithering $DITHERING -indexroll $INDEXROLL";}
+    if ($DOEDGES) 
+        {
+        $cmd=$cmd." -doedges -edges_pattern $EDGESPATTERN -edgesopacity $EDGESOPACITY -edgesmode $EDGESMODE -edgedilate $EDGEDILATE";
+        if ($EDGESMOOTH) {$cmd=$cmd." -edgesmooth";}
+        if ($EDGESINVERT) {$cmd=$cmd." -edgesinvert";}
+        }
+    if ($DOGRADIENT) {$cmd=$cmd." -dogradient -gradient_pattern $GRADIENTPATTERN -gradientbooster $GRADIENTBOOSTER";}
+    if ($DOTANGENT) {$cmd=$cmd." -dotangent -tangent_pattern $TANGENTPATTERN -tangentbooster $TANGENTBOOSTER";}
+    verbose($cmd);
+    system $cmd;
     }
-if ($DOGRADIENT) {$cmd=$cmd." -dogradient -gradient_pattern $GRADIENTPATTERN -gradientbooster $GRADIENTBOOSTER";}
-if ($DOTANGENT) {$cmd=$cmd." -dotangent -tangent_pattern $TANGENTPATTERN -tangentbooster $TANGENTBOOSTER";}
-}
-    
-if ($PROCESS == 1)
-    {
-@tmp=split(/,/,$NUMITERATIONS);
-$NUMITERATIONSMULTI=@tmp[0];
-@tmp=split(/,/,$INIT);
-$INITMULTI=@tmp[1];
-$cmd="$TH $MULTILUA -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONSMULTI -init $INITMULTI -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -forwardFlow_pattern $FORWARDFLOWPATTERN -backwardFlow_pattern $BACKWARDFLOWPATTERN -forwardFlow_weight_pattern $FORWARDFLOWWEIGHTPATTERN -backwardFlow_weight_pattern $BACKWARDFLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -backend cudnn -gpu $GPU -cudnn_autotune -number_format \%04d";
-if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
-    }
-    
-if ($PROCESS == 2)
-    {
-$cmd="$TH $LUA -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -backend cudnn -gpu $GPU -cudnn_autotune -number_format \%04d";
-if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
-    }
-verbose $cmd;
-system $cmd;
-}
 }#neural sub
 
 #main

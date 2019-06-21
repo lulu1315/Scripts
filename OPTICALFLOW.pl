@@ -30,7 +30,7 @@ print BOLD BLUE "----------------------\n";print RESET;
 
 #defaults
 $METHOD="0";
-$OPENCV_DEEPFLOW=0;
+$OPENCV_DEEPFLOW=1;
 #0 -> deepflow2 : works everywhere
 #1 -> flownet2  : GPU needed (s00X,v80X)
 #2 -> OFDIS     : problem on AMD (SSE?)
@@ -113,6 +113,7 @@ $CSV=0;
 $DOHOUDINI=0;
 #gpu id
 $GPU=0;
+$GPU_OCV = "-g";
 $OFFSET=1;
 #JSON
 $CAPACITY=1000;
@@ -223,6 +224,16 @@ if ($#ARGV == -1) {
     print "-csv csv_file.csv\n";
     print "-json [submit to afanasy]\n";
     print "-xml  [submit to royalrender]\n";
+    print "\n";
+    print "#0 -> deepflow\n";
+    print "#1 -> flownet2\n";
+    print "#2 -> OFDIS : DenseInverseSearch\n";
+    print "#3 -> EPPM : EdgePreserving\n";
+    print "#4 -> RIC : Robust interpolation of Correspondances\n";
+    print "#5 -> PWC-Net : Pyramid, Warping, and Cost Volume\n";
+    print "#6 -> Unflow  : Unsupervised Learning with a Bidirectional Census Loss\n";
+    print "#7 -> Spynet  : Spatial Pyramid Network\n";
+    print "#8 -> Simpleflow  : Sublinear Optical Flow (opencv)\n";
 	exit;
 }
 
@@ -373,7 +384,7 @@ if (@ARGV[$arg] eq "-fbornes")
   }
   
 $userName =  $ENV{'USER'}; 
-if ($userName eq "dev" || $userName eq "render")	#
+if ($userName eq "dev")	#
   {
   $CPM="/shared/foss/CPM/build/CPM";
   $RIC="/shared/foss/Ric/RIC";
@@ -399,7 +410,7 @@ if ($userName eq "dev" || $userName eq "render")	#
   $ENV{CAFFE_BIN} = "/shared/foss/flownet2/build/tools/caffe";
   }
   
-if ($userName eq "dev18")	#
+if ($userName eq "dev18" || $userName eq "render")	#
   {
   $CPM="/shared/foss-18/CPM/build/CPM";
   $RIC="/shared/foss-18/Ric/build/RIC";
@@ -454,6 +465,10 @@ print "LD_LIBRARY_PATH : $ENV{'LD_LIBRARY_PATH'}\n";
 print "PATH : $ENV{'PATH'}\n";
 print "CAFFE : $ENV{'CAFFE_BIN'}\n";
     
+if ($HOSTNAME =~ "hp") {$GPU_OCV = "";print "nogpu : using cpu\n";}
+if ($HOSTNAME =~ "rnd") {$GPU_OCV = "";print "nogpu : using cpu\n";}
+#if ($HOSTNAME =~ "v80") {$GPU_OCV = "";print "nogpu : using cpu\n";}
+
 sub opticalflow {
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
@@ -503,12 +518,12 @@ if (-e "$OOUTDIR/dual") {print "$OOUTDIR/dual already exists\n";}
 if (-e "$OOUTDIR/sequential") {print "$OOUTDIR/sequential already exists\n";}
     else {$cmd="mkdir $OOUTDIR/sequential";system $cmd;}
     
-for ($i = $FSTART ;$i < $FEND ;$i++)
+for ($i = $FSTART ;$i <= $FEND ;$i++)
 {
 #-----------------------------#
 ($s1,$m1,$h1)=localtime(time);
 #-----------------------------#
-$j=$i+$OFFSET;
+if ($i == $LASTFRAME) {$j=$i;} else {$j=$i+$OFFSET;} #cheat pour renderfarm
 #$k=$i-$OFFSET;
 
 $ii=sprintf("%04d",$i);
@@ -593,7 +608,7 @@ else
                 {
                 if ($OPENCV_DEEPFLOW)
                     {
-                    $cmd="$DEEPFLOW_OPENCV -g $WFILE1 $WFILE2 $WFORWARD";
+                    $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE1 $WFILE2 $WFORWARD";
                     }
                 else
                     {
@@ -658,7 +673,7 @@ else
                 {
                 if ($OPENCV_DEEPFLOW)
                     {
-                    $cmd="$DEEPFLOW_OPENCV -g $WFILE1 $WFILE2 $FORWARD";
+                    $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE1 $WFILE2 $FORWARD";
                     }
                 else 
                     {
@@ -748,7 +763,7 @@ else
                 {
                 if ($OPENCV_DEEPFLOW)
                     {
-                    $cmd="$DEEPFLOW_OPENCV -g $WFILE2 $WFILE1 $WBACKWARD";
+                    $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE2 $WFILE1 $WBACKWARD";
                     }
                 else
                     {
@@ -814,7 +829,7 @@ else
                 {
                 if ($OPENCV_DEEPFLOW)
                     {
-                    $cmd="$DEEPFLOW_OPENCV -g $WFILE2 $WFILE1 $BACKWARD";
+                    $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE2 $WFILE1 $BACKWARD";
                     }
                 else
                     {

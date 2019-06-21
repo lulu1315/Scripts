@@ -44,6 +44,8 @@ $EXT="png";
 $VERBOSE=0;
 $NETWORKSIZE=224;
 $METHOD=0;
+$DEOLDIFYMODEL=0;
+$DEOLDIFYRENDERFACTOR=35;
 #preprocess
 $SIZE=0;
 $DOLOCALCONTRAST=0;
@@ -98,6 +100,11 @@ print AUTOCONF "#1 : lettherebecolor\n";
 print AUTOCONF "#2 : autocolor\n";
 print AUTOCONF "#3 : zhangcolor1\n";
 print AUTOCONF "#4 : zhangcolor2\n";
+print AUTOCONF "#5 : zhangcolor3\n";
+print AUTOCONF "#6 : deoldify\n";
+print AUTOCONF confstr(DEOLDIFYMODEL);
+print AUTOCONF "#0:video 1:artistic 2:stable\n";
+print AUTOCONF confstr(DEOLDIFYRENDERFACTOR);
 print AUTOCONF "#preprocess\n";
 print AUTOCONF confstr(SIZE);
 print AUTOCONF confstr(DOLOCALCONTRAST);
@@ -228,6 +235,7 @@ if ($userName eq "dev18")	#
   $ZHANGCOLORIZE3="python3 /shared/foss-18/colorization/color_v2.py";
   $ZHANGPROTO3="/shared/foss-18/colorization/models/colorization_deploy_v2.prototxt";
   $ZHANGMODEL3="/shared/foss-18/colorization/models/colorization_release_v2_norebal.caffemodel";
+  $DEOLDIFY="python3 /shared/foss-18/DeOldify/ImageColorizer.py";
   if ($HOSTNAME =~ "hp") {$ENV{PYTHONPATH} = "/shared/foss-18/caffe-cpu/python:$ENV{'PYTHONPATH'}";}
   else {$ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:$ENV{'PYTHONPATH'}";}
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
@@ -392,7 +400,7 @@ else {
     print BOLD GREEN " took $hlat:$mlat:$slat\n";print RESET;
     #-----------------------------#
     } 
-  if ($METHOD == 4 || $METHOD == 0)
+  if ($METHOD == 4)
     {   
     #-----------------------------#
     ($s11,$m11,$h11)=localtime(time);
@@ -424,13 +432,29 @@ else {
     print BOLD GREEN " took $hlat:$mlat:$slat\n";print RESET;
     #-----------------------------#
     } 
+  if ($METHOD == 6 || $METHOD == 0)
+    {   
+    #-----------------------------#
+    ($s11,$m11,$h11)=localtime(time);
+    #-----------------------------#
+    $OOUT="$OOUTDIR/$OUT$PARAMS\_m6.$ii.$EXT";
+    $cmd="$DEOLDIFY $DEOLDIFYMODEL $DEOLDIFYRENDERFACTOR $IIN $OOUT $LOG2";
+    verbose($cmd);
+    system $cmd;
+    #-----------------------------#
+    ($s21,$m21,$h21)=localtime(time);
+    ($slat,$mlat,$hlat) = lapse($s11,$m11,$h11,$s21,$m21,$h21);
+    print("--------> method 6 : deoldify [model:$DEOLDIFYMODEL renderfactor:$DEOLDIFYRENDERFACTOR]");
+    print BOLD GREEN " took $hlat:$mlat:$slat\n";print RESET;
+    #-----------------------------#
+    } 
   if ($METHOD == 0)
     {
     $M1="$OOUTDIR/$OUT$PARAMS\_m1.$ii.$EXT";
     $M2="$OOUTDIR/$OUT$PARAMS\_m2.$ii.$EXT";
     $M3="$OOUTDIR/$OUT$PARAMS\_m3.$ii.$EXT";
-    $M4="$OOUTDIR/$OUT$PARAMS\_m4.$ii.$EXT";
-    $cmd="$GMIC $M1 $M2 $M3 $M4 -text_outline[0] \"1\" -text_outline[1] \"2\" -text_outline[2] \"3\" -text_outline[3] \"4\" -montage X -o $OOUTDIR/$OUT$PARAMS\_montage.$ii.$EXT $LOG2";
+    $M4="$OOUTDIR/$OUT$PARAMS\_m6.$ii.$EXT";
+    $cmd="$GMIC $M1 $M2 $M3 $M4 -text_outline[0] \"1\" -text_outline[1] \"2\" -text_outline[2] \"3\" -text_outline[3] \"6\" -montage X -o $OOUTDIR/$OUT$PARAMS\_montage.$ii.$EXT $LOG2";
     #$cmd="$GMIC $M1 $M2 $M3 $M4 -montage X -o $OOUTDIR/$OUT$PARAMS\_montage.$ii.$EXT $LOG2";
     verbose($cmd);
     print("--------> montage\n");

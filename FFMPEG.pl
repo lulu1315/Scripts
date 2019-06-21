@@ -22,7 +22,7 @@ $SIMULATE=0;
 $VERBOSE=0;
 
 sub verbose {
-    if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
+    if ($VERBOSE) {print "@_\n";}
 }
 
 sub isnum ($) {
@@ -70,7 +70,7 @@ if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
 else {$cmd="mkdir $OUTDIR";print "$cmd\n";system $cmd;}
 
 $userName =  $ENV{'USER'}; 
-if (($userName eq "dev") || ($userName eq "render"))	#
+if (($userName eq "dev18") || ($userName eq "render"))	#
   {
   $GMIC="/usr/bin/gmic";
   $FFMPEG="/usr/bin/ffmpeg";
@@ -104,7 +104,7 @@ foreach $DIR (@SUBDIR) {
         $IIMAGE=$tmp[0];
         if ($IIMAGE ne $IMAGE)
             {
-            print "$DDIR --> $IMAGE $FSTART $EXT\n";
+            #print "$DDIR --> $IMAGE $FSTART $EXT\n";
             #make ffmpeg cmd
             $IIN="$DDIR/$IMAGE.\%04d.$EXT";
             $OUT="$OUTDIR/$DIR\_$IMAGE.mov";
@@ -114,7 +114,7 @@ foreach $DIR (@SUBDIR) {
             if (!$SIMULATE)
                 {
                 verbose $cmd;
-                system $cmd;
+                #system $cmd;
                 }
             $IMAGE=$IIMAGE;
             $EXT=$tmp[$#tmp];
@@ -123,7 +123,7 @@ foreach $DIR (@SUBDIR) {
         if ($NNUMBER < $FSTART) {$FSTART=$NNUMBER;}
         }
     #last seq
-    print "$DDIR --> $IMAGE $FSTART $EXT\n";
+    #print "$DDIR --> $IMAGE $FSTART $EXT\n";
     #make ffmpeg cmd
     $IIN="$DDIR/$IMAGE.\%04d.$EXT";
     $OUT="$OUTDIR/$DIR\_$IMAGE.mov";
@@ -133,7 +133,7 @@ foreach $DIR (@SUBDIR) {
     if (!$SIMULATE)
         {
         verbose $cmd;
-        system $cmd;
+        #system $cmd;
         }
 }
 
