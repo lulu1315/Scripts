@@ -213,10 +213,10 @@ if ($userName eq "dev18")	#renderfarm
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
-    if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
+    if ($PROC_USE_SHOT) {$AUTODIR="$PROCDIR/$SHOT";} else {$AUTODIR="$PROCDIR";}
     print ("frames $FSTART $FEND dir $AUTODIR\n");
     opendir DIR, "$AUTODIR";
-    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    @images = grep { /$PROC/ && /$EXT/ } readdir DIR;
     closedir DIR;
     $min=9999999;
     $max=-1;
@@ -256,7 +256,7 @@ if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
 $LOOPS=(($FEND - $FSTART +1)/$INTERVAL);
 $LLOOPS=ceil($LOOPS);
 print ("loops : $LOOPS \n");
-$OOUT="$OUT\_iter$i";
+$OOUT="$OUT\_iter$ITERS";
 
 for ($i = 0 ;$i < $LLOOPS;$i++)
 {
@@ -281,7 +281,8 @@ for ($i = 0 ;$i < $LLOOPS;$i++)
     for ($j = $FFSTART ;$j <= $FFEND;$j++)
     {
         $jj=sprintf("%04d",$j);
-        $BLEND=($j-($i*($INTERVAL))-1)/($FFEND-$FFSTART);
+        #$BLEND=($j-($i*($INTERVAL))-1)/($FFEND-$FFSTART);
+        $BLEND=($j-$FFSTART)/($FFEND-$FFSTART);
         $NBLEND=1-$BLEND;
         print ("$j blender : $BLEND\n");
         $cmd="gmic $WORKDIR/forward.$jj.$EXT $WORKDIR/backward.$jj.$EXT -mul[0] $NBLEND -mul[1] $BLEND -blend add -o $OOUTDIR/$OOUT.$jj.$EXT $LOG2";

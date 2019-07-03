@@ -50,10 +50,14 @@ $EDGESMODE="add";
 $EDGESINVERT=0;
 $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
-$DOGUIDANCE=0;
-$STYLEGUIDANCE="style_guidance.jpg";
+#$DOGUIDANCE=0;
+#$STYLEGUIDANCE="style_guidance.jpg";
 $GUIDANCEDIR="$CWD/guidance";
 $GUIDANCE="guidance";
+$GUIDANCESIZE=1500;
+$COLOR1="255,0,0";
+$COLOR2="0,255,0";
+$COLOR3="0,0,255";
 $OUTDIR="$CWD/$scriptname";
 $ZEROPAD=1;
 $FORCE=0;
@@ -149,6 +153,12 @@ print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
+print AUTOCONF "#guidance\n";
+#print AUTOCONF confstr(DOGUIDANCE);
+#print AUTOCONF confstr(STYLEGUIDANCE);
+print AUTOCONF confstr(GUIDANCEDIR);
+print AUTOCONF confstr(GUIDANCE);
+print AUTOCONF confstr(GUIDANCESIZE);
 print AUTOCONF "#hyperparameter\n";
 print AUTOCONF confstr(SIZE);
 print AUTOCONF confstr(MAX_SCALE);
@@ -236,6 +246,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $FSTEP=@ARGV[$arg+1];
     print "step $FSTEP\n";
+    }
+  if (@ARGV[$arg] eq "-style") 
+    {
+    $STYLE=@ARGV[$arg+1];
+    print "style $STYLE\n";
     }
   if (@ARGV[$arg] eq "-zeropad4") 
     {
@@ -336,12 +351,78 @@ $OOUTDIR="$OUTDIR/$SHOT";
 if (-e "$OOUTDIR") {print "$OOUTDIR already exists\n";}
 else {$cmd="mkdir $OOUTDIR";system $cmd;}
 
-#finalframe
-$SSTYLE=$STYLE;
-$SSTYLE=~ s/.jpg//;
-$SSTYLE=~ s/.jpeg//;
-$SSTYLE=~ s/.png//;
-$SSTYLE=~ s/\.//;
+$pid=$$;
+#multistyle
+@STYLE=split(/\,/,$STYLE);
+$stylenumber=@STYLE;
+if ($stylenumber > 1)
+    {
+    $DOGUIDANCE=1;
+    $WORKSTYLEDIR="$OOUTDIR/w_$pid";
+    if (-e "$WORKSTYLEDIR") {print "$WORKSTYLEDIR already exists\n";}
+    else {$cmd="mkdir $WORKSTYLEDIR";system $cmd;}
+    if ($stylenumber == 2)
+        {
+        $STYLE1=@STYLE[0];
+        $STYLE2=@STYLE[1];
+        $SSTYLE1=$STYLE1;
+        $SSTYLE1=~ s/.jpg//;
+        $SSTYLE1=~ s/.jpeg//;
+        $SSTYLE1=~ s/.png//;
+        $SSTYLE1=~ s/\.//;
+        $SSTYLE2=$STYLE2;
+        $SSTYLE2=~ s/.jpg//;
+        $SSTYLE2=~ s/.jpeg//;
+        $SSTYLE2=~ s/.png//;
+        $SSTYLE2=~ s/\.//;
+        $SSTYLE="$SSTYLE1\_$SSTYLE2";
+        print "$stylenumber styles : $STYLE1 $STYLE2 $SSTYLE\n";
+        #concatstyle
+        $cmd="gmic $STYLEDIR/$STYLE1 $STYLEDIR/$STYLE2 -to_colormode 3 -resize2dy $GUIDANCESIZE --montage H -o[2] $WORKSTYLEDIR/style.png -remove[2] -fill_color[0] $COLOR1 -fill_color[1] $COLOR2 -montage H -o $WORKSTYLEDIR/style_guidance.png";
+        print "$cmd\n";
+        system $cmd;
+        }
+    if ($stylenumber == 3)
+        {
+        $STYLE1=@STYLE[0];
+        $STYLE2=@STYLE[1];
+        $STYLE3=@STYLE[2];
+        $SSTYLE1=$STYLE1;
+        $SSTYLE1=~ s/.jpg//;
+        $SSTYLE1=~ s/.jpeg//;
+        $SSTYLE1=~ s/.png//;
+        $SSTYLE1=~ s/\.//;
+        $SSTYLE2=$STYLE2;
+        $SSTYLE2=~ s/.jpg//;
+        $SSTYLE2=~ s/.jpeg//;
+        $SSTYLE2=~ s/.png//;
+        $SSTYLE2=~ s/\.//;
+        $SSTYLE3=$STYLE3;
+        $SSTYLE3=~ s/.jpg//;
+        $SSTYLE3=~ s/.jpeg//;
+        $SSTYLE3=~ s/.png//;
+        $SSTYLE3=~ s/\.//;
+        $SSTYLE="$SSTYLE1\_$SSTYLE2\_$SSTYLE3";
+        print "$stylenumber styles : $STYLE1 $STYLE2 $STYLE3 $SSTYLE\n";
+        #concatstyle
+        $cmd="gmic $STYLEDIR/$STYLE1 $STYLEDIR/$STYLE2 $STYLEDIR/$STYLE3 -to_colormode 3 -resize2dy $GUIDANCESIZE --montage H -o[3] $WORKSTYLEDIR/style.png -remove[3] -fill_color[0] $COLOR1 -fill_color[1] $COLOR2 -fill_color[2] $COLOR3 -montage H -o $WORKSTYLEDIR/style_guidance.png";
+        print "$cmd\n";
+        system $cmd;
+        }
+    #$STYLEDIR="$WORKSTYLEDIR";
+    $STYLE="style.png";
+    $STYLEGUIDANCE="style_guidance.png";
+    #exit;
+    }
+else
+    {
+    #finalframe
+    $SSTYLE=$STYLE;
+    $SSTYLE=~ s/.jpg//;
+    $SSTYLE=~ s/.jpeg//;
+    $SSTYLE=~ s/.png//;
+    $SSTYLE=~ s/\.//;
+    }
 @tmp=split(/\./,$CONTENT);
 $CCONTENT=@tmp[0];
 
@@ -360,15 +441,18 @@ $INEDGES  ="$EDGEDIR/$SHOT/$EDGES.$ii.$EXT";
 $OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.exr";
 $CONSISTENCY="$FLOWDIR/$SHOT/dual/reliable_$ii\_$jj.png";
 #working dir
-$pid=$$;
 $WORKDIR="$OOUTDIR/w$ii\_$pid";
 #work elements
 $WCONTENT  ="$WORKDIR/preprocess.$EXT";
 $WCOLOR    ="$WORKDIR/colortransfert.$EXT";
+$WCOLOR1    ="$WORKDIR/colortransfert1.$EXT";
+$WCOLOR2    ="$WORKDIR/colortransfert2.$EXT";
+$WCOLOR3    ="$WORKDIR/colortransfert3.$EXT";
 $WNOISE    ="$WORKDIR/noise.$EXT";
 $WEDGES    ="$WORKDIR/edges.$EXT";
 $WNEURAL   ="$WORKDIR/neural.$EXT";
 $WPREVIOUS ="$WORKDIR/previous.$EXT";
+$WGUIDE    ="$WORKDIR/guide.$EXT";
 #output
 $FINALFRAME="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$ii.$EXT";
 
@@ -432,16 +516,101 @@ if (($DONOISE != 0) && ($i == $FSTART))
     }
   if ($DOCOLORTRANSFERT == 3)
     {
-    verbose("color transfert : using neural-tools");
-    $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
-    print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
-    verbose($cmd);
-    system $cmd;
-    if ($DOINDEX)
+    if ($stylenumber == 1)
         {
-        $cmd="$GMIC $STYLEDIR/$STYLE -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR $LOG2";
+        verbose("color transfert : using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE --output_image $WCOLOR";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
         verbose($cmd);
-        print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        }
+    if ($stylenumber == 2)
+        {
+        verbose("color transfert style1 $STYLE1: using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE1 --output_image $WCOLOR1";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE1 -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR1 -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR1 $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        verbose("color transfert style2 $STYLE2: using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE2 --output_image $WCOLOR2";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE2 -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR2 -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR2 $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        #recompose colortransfert
+        $cmd = "$GMIC $WCOLOR1 $WCOLOR2 $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT -split[2] c -div[2,3] 255 -mul[0] [2] -mul[1] [3] -remove[2,3,4] -add -o $WCOLOR";
+        verbose($cmd);
+        print("--------> recombining colortransfers 1 2\n");
+        system $cmd;
+        #copy guide
+        $cmd="cp $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT $WGUIDE";
+        system $cmd;
+        }
+    if ($stylenumber == 3)
+        {
+        verbose("color transfert style1 $STYLE1: using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE1 --output_image $WCOLOR1";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE1 -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR1 -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR1 $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        verbose("color transfert style2 $STYLE2: using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE2 --output_image $WCOLOR2";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE2 -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR2 -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR2 $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        verbose("color transfert style3 $STYLE3: using neural-tools");
+        $cmd="$LINEARCOLORTRANSFERT --mode $LCTMODE --target_image $WCONTENT --source_image $STYLEDIR/$STYLE3 --output_image $WCOLOR3";
+        print("--------> neural-tools [mode:$LCTMODE style:$STYLE]\n");
+        verbose($cmd);
+        system $cmd;
+        if ($DOINDEX)
+            {
+            $cmd="$GMIC $STYLEDIR/$STYLE3 -colormap $INDEXCOLOR,$INDEXMETHOD,1 $WCOLOR3 -index[1] [0],$DITHERING,1 -remove[0] -fx_sharp_abstract $INDEXROLL,10,0.5,0,0 -o $WCOLOR3 $LOG2";
+            verbose($cmd);
+            print("--------> indexing [colors:$INDEXCOLOR method:$INDEXMETHOD dither:$DITHERING rolling:$INDEXROLL]\n");
+            system $cmd;
+            }
+        #recompose colortransfert
+        $cmd = "$GMIC $WCOLOR1 $WCOLOR2 $WCOLOR3 $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT -split[3] c -div[3,4,5] 255 -mul[0] [3] -mul[1] [4] -mul[2] [5] -remove[3,4,5] -add -o $WCOLOR";
+        verbose($cmd);
+        print("--------> recombining colortransfers 1 2 3\n");
+        system $cmd;
+        #copy guide
+        $cmd="cp $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT $WGUIDE";
         system $cmd;
         }
     }
@@ -498,7 +667,7 @@ if ($i != $FSTART)
         }
     else
         {
-        $cmd="$STROTSS $WCOLOR $STYLEDIR/$STYLE $WNEURAL $CONTENT_WEIGHT $MAX_SCALE $SIZE $WEIGHT_DECAY  $MAX_ITERS $LOSS_TRESHOLD -gr $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT $STYLEDIR/$STYLEGUIDANCE";
+        $cmd="$STROTSS $WCOLOR $WORKSTYLEDIR/$STYLE $WNEURAL $CONTENT_WEIGHT $MAX_SCALE $SIZE $WEIGHT_DECAY  $MAX_ITERS $LOSS_TRESHOLD -gr $GUIDANCEDIR/$SHOT/$GUIDANCE.$ii.$EXT $WORKSTYLEDIR/$STYLEGUIDANCE";
         print("--------> guided strotss [content weight:$CONTENT_WEIGHT max scale:$MAX_SCALE target size:$SIZE]\n");
         verbose($cmd);
         }   
@@ -529,6 +698,12 @@ if ($i != $FSTART)
   #-----------------------------#
   }
 }
+if ($CLEAN && $DOGUIDANCE)
+    {
+    $cleancmd="rm -r $WORKSTYLEDIR";
+    verbose($cleancmd);
+    system $cleancmd;
+    }
 }#strotss sub
 
 #main
