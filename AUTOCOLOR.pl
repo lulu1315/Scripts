@@ -38,7 +38,7 @@ $INDIR="$CWD/originales";
 $IN="ima";
 $OUTDIR="$CWD/$scriptname";
 $OUT="ima";
-$ZEROPAD=1;
+$ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
@@ -182,10 +182,10 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $OUT=@ARGV[$arg+1];
     print "image out : $OUT\n";
     }
-  if (@ARGV[$arg] eq "-zeropad4")
+  if (@ARGV[$arg] eq "-zeropad")
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad4 : $ZEROPAD\n";
     }
  if (@ARGV[$arg] eq "-force")
     {
@@ -275,7 +275,10 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     
 for ($i = $FSTART ;$i <= $FEND;$i++)
 {
-$ii=sprintf("%04d",$i);
+#
+if ($ZEROPAD == 4) {$ii=sprintf("%04d",$i);}
+if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
+
 if ($IN_USE_SHOT)
     {
     $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";

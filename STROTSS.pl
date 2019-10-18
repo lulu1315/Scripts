@@ -39,6 +39,7 @@ $OUT_USE_SHOT=0;
 $CONTENTDIR="$CWD/originales";
 $CONTENT="ima";
 $FLOWDIR="$CWD/opticalflow";
+$COHERENTDIR="$CWD/coherent";
 $CONTENTBLEND="5e-1";
 $DOEDGES=0;
 $EDGEDIR="$CWD/edges";
@@ -48,6 +49,10 @@ $EDGESMOOTH=1;
 $EDGESOPACITY=1;
 $EDGESMODE="add";
 $EDGESINVERT=0;
+$DOGRADIENT=0;
+$GRADIENTWEIGHT=0;
+$DOTANGENT=0;
+$TANGENTWEIGHT=0;
 $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
 #$DOGUIDANCE=0;
@@ -59,7 +64,7 @@ $COLOR1="255,0,0";
 $COLOR2="0,255,0";
 $COLOR3="0,0,255";
 $OUTDIR="$CWD/$scriptname";
-$ZEROPAD=1;
+$ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
@@ -98,6 +103,7 @@ $MEDIANRADIUS=2;
 $MEDIANREPEAT=1;
 $CLEAN=1;
 $CSV=0;
+$CSVFILE="./SHOTLIST.csv";
 #gpu id
 $GPU=0; #-1 -> CPU only 0 -> GPU
 $LOG1=" > /var/tmp/strotss_$GPU.log";
@@ -137,6 +143,7 @@ print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(CONTENTDIR);
 print AUTOCONF confstr(CONTENT);
 print AUTOCONF confstr(FLOWDIR);
+print AUTOCONF confstr(COHERENTDIR);
 print AUTOCONF confstr(CONTENTBLEND);
 print AUTOCONF confstr(DOEDGES);
 print AUTOCONF confstr(EDGEDIR);
@@ -146,7 +153,10 @@ print AUTOCONF confstr(EDGESMOOTH);
 print AUTOCONF confstr(EDGESOPACITY);
 print AUTOCONF confstr(EDGESMODE);
 print AUTOCONF confstr(EDGESINVERT);
-print AUTOCONF confstr(STYLEDIR);
+print AUTOCONF confstr(DOGRADIENT);
+print AUTOCONF confstr(GRADIENTWEIGHT);
+print AUTOCONF confstr(DOTANGENT);
+print AUTOCONF confstr(TANGENTWEIGHT);
 print AUTOCONF confstr(STYLE);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(ZEROPAD);
@@ -252,10 +262,15 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $STYLE=@ARGV[$arg+1];
     print "style $STYLE\n";
     }
-  if (@ARGV[$arg] eq "-zeropad4") 
+  if (@ARGV[$arg] eq "-shot") 
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $SHOT=@ARGV[$arg+1];
+    print "shot $SHOT\n";
+    }
+  if (@ARGV[$arg] eq "-zeropad") 
+    {
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad $ZEROPAD ...\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -345,7 +360,30 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("final seq : $FSTART $FEND\n");
     }
     
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+print ("debug : $CONTINUE\n");
 if ($CONTINUE == -1) {$CONTINUE = $FSTART};
+print ("debug : $FSTART $FEND\n");
 
 $OOUTDIR="$OUTDIR/$SHOT";
 if (-e "$OOUTDIR") {print "$OOUTDIR already exists\n";}
@@ -426,55 +464,89 @@ else
 @tmp=split(/\./,$CONTENT);
 $CCONTENT=@tmp[0];
 
-for ($i=$CONTINUE ; $i <= $FEND ; $i=$i+$FSTEP)
-{
-$ii=sprintf("%04d",$i);
-$jj=sprintf("%04d",$i-1);
-
-if ($IN_USE_SHOT) 
-    {$INCONTENT="$CONTENTDIR/$SHOT/$CONTENT.$ii.$EXT";} 
-else 
-    {$INCONTENT="$CONTENTDIR/$CONTENT.$ii.$EXT";}
-    
-#$INCONTENT="$CONTENTDIR/$SHOT/$CONTENT.$ii.$EXT";
-$INEDGES  ="$EDGEDIR/$SHOT/$EDGES.$ii.$EXT";
-$OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.exr";
-$CONSISTENCY="$FLOWDIR/$SHOT/dual/reliable_$ii\_$jj.png";
-#working dir
-$WORKDIR="$OOUTDIR/w$ii\_$pid";
-#work elements
-$WCONTENT  ="$WORKDIR/preprocess.$EXT";
-$WCOLOR    ="$WORKDIR/colortransfert.$EXT";
-$WCOLOR1    ="$WORKDIR/colortransfert1.$EXT";
-$WCOLOR2    ="$WORKDIR/colortransfert2.$EXT";
-$WCOLOR3    ="$WORKDIR/colortransfert3.$EXT";
-$WNOISE    ="$WORKDIR/noise.$EXT";
-$WEDGES    ="$WORKDIR/edges.$EXT";
-$WNEURAL   ="$WORKDIR/neural.$EXT";
-$WPREVIOUS ="$WORKDIR/previous.$EXT";
-$WGUIDE    ="$WORKDIR/guide.$EXT";
-#output
-$FINALFRAME="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$ii.$EXT";
-
-if (-e $FINALFRAME && !$FORCE)
-   {print BOLD RED "frame $FINALFRAME exists ... skipping\n";print RESET;}
+$TAG="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS";
+if (-e $TAG && !$FORCE)
+   {print BOLD RED "frame $TAG exists ... skipping\n";print RESET;}
 else
   {
-  $touchcmd="touch $FINALFRAME";
+  $touchcmd="touch $TAG";
   system $touchcmd;
+  
+    for ($i=$CONTINUE ; $i <= $FEND ; $i=$i+$FSTEP)
+    {
+
+    if ($ZEROPAD == 4)
+        {
+        $ii=sprintf("%04d",$i);
+        $jj=sprintf("%04d",$i-1);
+        }
+    if ($ZEROPAD == 5)
+        {
+        $ii=sprintf("%05d",$i);
+        $jj=sprintf("%05d",$i-1);
+        }
+
+    if ($IN_USE_SHOT) 
+        {$INCONTENT="$CONTENTDIR/$SHOT/$CONTENT.$ii.$EXT";} 
+    else 
+        {$INCONTENT="$CONTENTDIR/$CONTENT.$ii.$EXT";}
+    
+    $INEDGES  ="$EDGEDIR/$SHOT/$EDGES.$ii.$EXT";
+    $OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.exr";
+    $CONSISTENCY="$FLOWDIR/$SHOT/dual/reliable_$ii\_$jj.png";
+    $GRADIENT="$COHERENTDIR/$SHOT/gradient.$ii.exr";
+    $TANGENT="$COHERENTDIR/$SHOT/tangent.$ii.exr";
+    #working dir
+    $WORKDIR="$OOUTDIR/w$ii\_$pid";
+    #work elements
+    $WCONTENT  ="$WORKDIR/preprocess.$EXT";
+    $WCOLOR    ="$WORKDIR/colortransfert.$EXT";
+    $WCOLOR1    ="$WORKDIR/colortransfert1.$EXT";
+    $WCOLOR2    ="$WORKDIR/colortransfert2.$EXT";
+    $WCOLOR3    ="$WORKDIR/colortransfert3.$EXT";
+    $WNOISE    ="$WORKDIR/noise.$EXT";
+    $WEDGES    ="$WORKDIR/edges.$EXT";
+    $WNEURAL   ="$WORKDIR/neural.$EXT";
+    $WPREVIOUS ="$WORKDIR/previous.$EXT";
+    $WGUIDE    ="$WORKDIR/guide.$EXT";
+    $WFLOW     ="$WORKDIR/flow.exr";
+    #output
+    $FINALFRAME="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$ii.$EXT";
+
   print BOLD BLUE ("\nframe : $ii\n");print RESET;
   if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
-#preprocessing content --> $WCONTENT
+  #preprocessing content --> $WCONTENT
   if ($CONTENTBLUR != 0) 
     {$GMIC1="-fx_sharp_abstract $CONTENTBLUR,10,0.5,0,0";} else {$GMIC1="";}
   if (($BRIGHTNESS != 0) || ($CONTRAST != 0) || ($GAMMA != 0) || ($SATURATION != 0)) 
     {$GMIC2="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} else {$GMIC2="";}
   if ($DOLOCALCONTRAST) 
     {$GMIC3="-fx_LCE[0] 80,0.5,1,1,0,0";} else {$GMIC3="";}
-  $cmd="$GMIC -i $INCONTENT $GMIC1 -resize2dx $SIZE $GMIC2 $GMIC3 -o $WCONTENT $LOG2";
+  $cmd="$GMIC -i $INCONTENT $GMIC1 -resize2dx $SIZE $GMIC2 $GMIC3 -to_colormode 3 -o $WCONTENT $LOG2";
   print("--------> preprocess [blur:$CONTENTBLUR b/c/g/s:$BRIGHTNESS,$CONTRAST,$GAMMA,$SATURATION lce:$DOLOCALCONTRAST]\n");
   verbose($cmd);
   system $cmd;
+  
+#process edges --> $WEDGES
+if($DOEDGES)
+  {
+  if ($EDGEDILATE != 0) 
+    {$GMIC1="-dilate $EDGEDILATE";} else {$GMIC1="";}
+  if ($EDGESMOOTH != 0) 
+    {$GMIC2="-fx_dreamsmooth 10,0,1,1,0,0.8,0,24,0";} else {$GMIC2="";}
+  if ($EDGESINVERT != 0) 
+    {$GMIC3="-n 0,1 -oneminus -n 0,255";} else {$GMIC3="";}
+  $cmd="$GMIC -i $INEDGES -to_colormode 3 $GMIC1 -resize2dx $SIZE,5 $GMIC2 $GMIC3 -o $WEDGES $LOG2";
+  print("--------> preprocess edges [dilate:$EDGEDILATE dreamsmooth:$EDGESMOOTH]\n");
+  verbose($cmd);
+  system $cmd;
+#add edges
+  $cmd="$GMIC -i $WCOLOR -i $WEDGES -blend $EDGESMODE,$EDGESOPACITY -o $WCOLOR $LOG2";
+#  $cmd="$GMIC -i $WCOLOR -i $WEDGES -n[1] 0,1 -oneminus[1] -n[1] 0,255 -blend multiply,$EDGESOPACITY -o $WCOLOR $LOG2";
+  print("--------> add edges [mode:$EDGESMODE opacity:$EDGESOPACITY]\n");
+  verbose($cmd);
+  system $cmd;
+  }
   
 if (($DONOISE != 0) && ($i == $FSTART)) 
   {
@@ -623,37 +695,31 @@ if (($DONOISE != 0) && ($i == $FSTART))
     verbose($cmd);
     system $cmd;
     }
-  
-#process edges --> $WEDGES
-if($DOEDGES)
-  {
-  if ($EDGEDILATE != 0) 
-    {$GMIC1="-dilate $EDGEDILATE";} else {$GMIC1="";}
-  if ($EDGESMOOTH != 0) 
-    {$GMIC2="-fx_dreamsmooth 10,0,1,1,0,0.8,0,24,0";} else {$GMIC2="";}
-  if ($EDGESINVERT != 0) 
-    {$GMIC3="-n 0,1 -oneminus -n 0,255";} else {$GMIC3="";}
-  $cmd="$GMIC -i $INEDGES -to_colormode 3 $GMIC1 -resize2dx $SIZE,5 $GMIC2 $GMIC3 -o $WEDGES $LOG2";
-  print("--------> preprocess edges [dilate:$EDGEDILATE dreamsmooth:$EDGESMOOTH]\n");
-  verbose($cmd);
-  system $cmd;
-#add edges
-  $cmd="$GMIC -i $WCOLOR -i $WEDGES -blend $EDGESMODE,$EDGESOPACITY -o $WCOLOR $LOG2";
-#  $cmd="$GMIC -i $WCOLOR -i $WEDGES -n[1] 0,1 -oneminus[1] -n[1] 0,255 -blend multiply,$EDGESOPACITY -o $WCOLOR $LOG2";
-  print("--------> add edges [mode:$EDGESMODE opacity:$EDGESOPACITY]\n");
-  verbose($cmd);
-  system $cmd;
-  }
 
 #warp previous and blend
 if ($i != $FSTART)
   {
+  #tangent and or gradient
+  if ($DOGRADIENT)
+    {
+    $FLOMIC1="$GRADIENT -mul[-1] $GRADIENTWEIGHT -add"; 
+    }
+  else {$FLOMIC1="";}
+  if ($DOTANGENT)
+    {
+    $FLOMIC2="$TANGENT -mul[-1] $TANGENTWEIGHT -add"; 
+    }
+  else {$FLOMIC2="";}
+  #add flow vectors
+  $flowcmd="gmic $OFLOW $FLOMIC1 $FLOMIC2 -resize2dx $SIZE -o $WFLOW";
+  verbose($flowcmd);
+  system $flowcmd;
   #resize previous result
   $cmd="gmic $OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$jj.$EXT -resize2dx $SIZE -o $WPREVIOUS";
   verbose($cmd);
   system $cmd;
-  #
-  $cmd="$PREVIOUS_WARP $WCOLOR $WPREVIOUS $OFLOW $CONSISTENCY $CONTENTBLEND $WCOLOR";
+  #warp
+  $cmd="$PREVIOUS_WARP $WCOLOR $WPREVIOUS $WFLOW $CONSISTENCY $CONTENTBLEND $WCOLOR";
   print("--------> warping previous result [content blend:$CONTENTBLEND]\n");
   verbose($cmd);
   system $cmd;
@@ -720,6 +786,7 @@ if ($CSV)
     $FEND=@line[4];
     $LENGTH=@line[5];   
     $process=@line[6];
+    $CONTINUE = @line[7];
     if ($process)
       {
       strotss();

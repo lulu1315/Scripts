@@ -53,7 +53,7 @@ $IN="ima";
 $IN_USE_SHOT=0;
 $OUTDIR="$CWD/opticalflow";
 $OUT_USE_SHOT=0;
-$ZEROPAD=1;
+$ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
@@ -217,7 +217,7 @@ if ($#ARGV == -1) {
 	print "-odir dirout\n";
     print "-shot shotname\n";
     print "-m method\n";
-	print "-zeropad4 [1]\n";
+	print "-zeropad [4]\n";
 	print "-force [0]\n";
 	print "-verbose\n";
 	print "-gpu gpu_id [0]\n";
@@ -290,10 +290,10 @@ if (@ARGV[$arg] eq "-fbornes")
     $SHOT=@ARGV[$arg+1];
     print "shotname : $SHOT\n";
     }
-  if (@ARGV[$arg] eq "-zeropad4") 
+  if (@ARGV[$arg] eq "-zeropad") 
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad $ZEROPAD ...\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -526,8 +526,16 @@ for ($i = $FSTART ;$i <= $FEND ;$i++)
 if ($i == $LASTFRAME) {$j=$i;} else {$j=$i+$OFFSET;} #cheat pour renderfarm
 #$k=$i-$OFFSET;
 
-$ii=sprintf("%04d",$i);
-$jj=sprintf("%04d",$j);
+if ($ZEROPAD == 4)
+    {
+    $ii=sprintf("%04d",$i);
+    $jj=sprintf("%04d",$j);
+    }
+if ($ZEROPAD == 5)
+    {
+    $ii=sprintf("%05d",$i);
+    $jj=sprintf("%05d",$j);
+    }
 #$kk=sprintf("%04d",$k);
 
 if ($IN_USE_SHOT)

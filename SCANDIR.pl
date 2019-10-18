@@ -34,10 +34,10 @@ sub list_dirs {
 #defaults
 $INDIR="./originales";
 $OUTDIR="./";
-$ZEROPAD=1;
+$ZEROPAD=4;
 $EXT="png";
 $FPS=25;
-$FORMAT="csv";
+$FORMAT="ffmpeg_prores";
 $PRORESCODEC="-c:v prores_ks -profile:v 3";
 $H264CODEC="-c:v libx264 -crf 10 -pix_fmt yuv420p";
 $H264CODEC="-c:v libx264 -crf 10";
@@ -50,6 +50,7 @@ if ($#ARGV == -1) {
 	print "-odir dirout [$OUTDIR]\n";
 	print "-ext image extension [$EXT]\n";
 	print "-rate fps [$FPS]\n";
+	print "-zeropad [$ZEROPAD]\n";
     print "-format [$FORMAT] ffmpeg_prores ffmpeg_h264\n";
     print "-exec : execute command (ffmpeg only) [$EXECUTE]\n";
 	exit;
@@ -81,6 +82,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $FORMAT=@ARGV[$arg+1];
     print "output format : $FORMAT\n";
+    }
+  if (@ARGV[$arg] eq "-zeropad") 
+    {
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad $ZEROPAD ...\n";
     }
   if (@ARGV[$arg] eq "-exec") 
     {
@@ -133,12 +139,14 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                     { 
                     #print ("$ima\n");
                     @tmp=split(/\./,$image);
-                    if ($#tmp >= 2)
+                    if ($#tmp >= 2 && @tmp[$#tmp] eq $EXT)
                         {
+                        #print("image : $image @tmp[$#tmp]\n");
                         $numframe=int($tmp[$#tmp-1]);
                         #print ("$numframe\n");
                         if ($numframe > $max) {$max = $numframe;}
                         if ($numframe < $min) {$min = $numframe;}
+                        #print ("min/max : $min $max\n");
                         }
                     }
                 $sshot=$shot;
@@ -148,11 +156,11 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                     {
                     if ($max == $min)
                         {
-                        print BOLD RED "$shot,$root,%04d,$EXT,$min,$max\n";print RESET;
+                        print BOLD RED "$shot,$root,\%0$ZEROPAD\d,$EXT,$min,$max\n";print RESET;
                         }
                     else
                         {
-                        print ("$shot,$root,%04d,$EXT,$min,$max\n");
+                        print ("$shot,$root,\%0$ZEROPAD\d,$EXT,$min,$max\n");
                         }
                     }
                 if ($FORMAT eq "ffmpeg_prores")
@@ -161,7 +169,20 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                     {print BOLD RED "only one frame ... skipping\n";print RESET;}
                 else
                     {
-                    $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot\_$root.mov";
+                    $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.\%0$ZEROPAD\d.$EXT $PRORESCODEC $OUTDIR/$sshot\_$root.mov";
+                    #$cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot.mov";
+                    print ("$cmd\n");
+                    if ($EXECUTE) {system ($cmd);}
+                    }
+                }
+                if ($FORMAT eq "ffmpeg_h264")
+                {
+                if ($max == $min)
+                    {print BOLD RED "only one frame ... skipping\n";print RESET;}
+                else
+                    {
+                    $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.\%0$ZEROPAD\d.$EXT $H264CODEC $OUTDIR/$sshot\_$root.mov";
+                    #$cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot.mov";
                     print ("$cmd\n");
                     if ($EXECUTE) {system ($cmd);}
                     }

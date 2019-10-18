@@ -306,7 +306,8 @@ for ($i=$FSTART ; $i <= $FEND ; $i++)
 {
 $ii=sprintf("%04d",$i);
 
-if (($METHOD == 1) || ($METHOD == 0))
+#if (($METHOD == 1) || ($METHOD == 0))
+if ($METHOD == 1)
 #pip install color_transfer
     {
     $PARAMS="_m1";
@@ -363,7 +364,8 @@ if (($METHOD == 1) || ($METHOD == 0))
         }
     }
     
-if (($METHOD == 2) || ($METHOD == 0))
+#if (($METHOD == 2) || ($METHOD == 0))
+if ($METHOD == 2)
 #pip install Pillow
     {
     $PARAMS="_m2";
@@ -547,7 +549,7 @@ if (($METHOD == 4) || ($METHOD == 0))
         $M4="$OOUTDIR/$CCONTENT\_$SSTYLE\_m4.$ii.$EXT";
         $cmd="$GMIC $M1 $M2 $M3 $M4 -text_outline[0] \"1\" -text_outline[1] \"2\" -text_outline[2] \"3\" -text_outline[3] \"4\" -montage X -o $OOUTDIR/$CCONTENT\_$SSTYLE\_montage.$ii.$EXT $LOG2";
         verbose($cmd);
-        system $cmd;
+        #system $cmd;
         $MONTAGE=0;
         }
 }

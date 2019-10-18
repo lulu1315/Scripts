@@ -39,7 +39,7 @@ $IN_USE_SHOT=0;
 $OUTDIR="$CWD/waifu2x";
 $OUT="ima";
 $OUT_USE_SHOT=0;
-$ZEROPAD=1;
+$ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
@@ -121,7 +121,7 @@ if ($#ARGV == -1) {
 	print "-e image ext (png)\n";
 	print "-n noiselevel\n";
 	print "-op operation (default noise_scale)\n";
-	print "-zeropad4\n";
+	print "-zeropad [4]\n";
 	print "-force\n";
 	print "-resize res [output x size]\n";
     print "-gpu gpu_id [0]\n";
@@ -194,10 +194,10 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $NOISE=@ARGV[$arg+1];
     print "noise level : $NOISE\n";
     }
-  if (@ARGV[$arg] eq "-zeropad4") 
+  if (@ARGV[$arg] eq "-zeropad") 
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad  $ZEROPAD...\n";
     }
   if (@ARGV[$arg] eq "-op") 
     {
@@ -275,7 +275,9 @@ if ($userName eq "dev18")	#
   {
   $GMIC="/usr/bin/gmic";
   if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
-  else  {$TH="/shared/foss-18/torch/install/bin/th";}
+  if ($HOSTNAME =~ "hp") {$TH="/shared/foss-18/torch/install/bin/th";}
+  if ($HOSTNAME =~ "s005" || $HOSTNAME =~ "s006") {$TH="/shared/foss-18/torch_GTX1080/install/bin/th";}
+  if ($HOSTNAME =~ "s001" || $HOSTNAME =~ "s002" || $HOSTNAME =~ "s003" || $HOSTNAME =~ "etalo") {$TH="/shared/foss-18/torch/install/bin/th";}
   $LUA="/shared/foss-18/waifu2x/waifu2x.lua";
   $MODELDIR="/shared/foss-18/waifu2x/models/anime_style_art_rgb/";
 #  $MODELDIR="/shared/foss-18/waifu2x/models/photo/";
@@ -319,7 +321,14 @@ else {$cmd="mkdir $OUTDIR";system $cmd;}
 sub csv {
 for ($i = $FSTART ;$i <= $FEND;$i=$i+$FSTEP)
 {
-$ii=sprintf("%04d",$i);
+if ($ZEROPAD == 4)
+    {
+    $ii=sprintf("%04d",$i);
+    }
+if ($ZEROPAD == 5)
+    {
+    $ii=sprintf("%05d",$i);
+    }
 if ($IN_USE_SHOT)
     {
     $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
@@ -354,21 +363,14 @@ else
   #-----------------------------#
   print BOLD YELLOW ("\nprocessing frame $ii\n");print RESET;
   #
-if ($ZEROPAD)
-  {
   $cmd="$TH $LUA -force_cudnn 1 -gpu $GPU -model_dir $MODELDIR -m $OP -noise_level $NOISE -i $IIN -o $OOUT $LOG2";
-  }
-else
-  {
-  $cmd="$TH $LUA -force_cudnn 1 -gpu $GPU -model_dir $MODELDIR -m $OP -noise_level $NOISE -i $IIN -o $OOUT $LOG2";
-  }
-verbose($cmd);
-print("--------> waifu2x [op:$OP noise:$NOISE gpu:$GPU]\n");
-system $cmd;
+  verbose($cmd);
+  print("--------> waifu2x [op:$OP noise:$NOISE gpu:$GPU]\n");
+  system $cmd;
 
 if ($OUTSIZE || ($POSTOP ne ""))
   {
-  if ($OUTSIZE) {$GMIC1="-resize2dx $OUTSIZE,5";} else {$GMIC1="";}
+  if ($OUTSIZE) {$GMIC1="-resize2dy $OUTSIZE,5";} else {$GMIC1="";}
   if ($POSTOP ne "") {$GMIC2=$POSTOP;} else {$GMIC2="";}
   $cmd="$GMIC -i $OOUT $GMIC1 $GMIC2 -o $OOUT $LOG2";
   verbose($cmd);

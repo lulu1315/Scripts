@@ -256,7 +256,7 @@ if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
 $LOOPS=(($FEND - $FSTART +1)/$INTERVAL);
 $LLOOPS=ceil($LOOPS);
 print ("loops : $LOOPS \n");
-$OOUT="$OUT\_iter$ITERS";
+$OOUT=$OUT;
 
 for ($i = 0 ;$i < $LLOOPS;$i++)
 {

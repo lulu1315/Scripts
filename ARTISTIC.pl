@@ -31,6 +31,7 @@ print BOLD BLUE "----------------------\n";print RESET;
 #defaults
 $FSTART="auto";
 $FEND="auto";
+$CONTINUE=-1;
 $SHOT="";
 $IN_USE_SHOT=0;
 $OUT_USE_SHOT=0;
@@ -86,7 +87,7 @@ $GAMMA=0;
 $SATURATION=0;
 $NOISE=0;
 #
-$ZEROPAD=1;
+$ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
@@ -109,6 +110,7 @@ $INIT="image,prevWarped";
 $GPU=0;
 $PARAMS="_lr$LEARNING_RATE\_$POOLING\_$OPTIMIZER\_ng$NORMALIZE_GRADIENT";
 $CSV=0;
+$CSVFILE="./SHOTLIST.csv";
 $LOG1=" > /var/tmp/artistic_$GPU.log";
 $LOG2=" 2> /var/tmp/artistic_$GPU.log";
 
@@ -261,10 +263,10 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $FEND=@ARGV[$arg+2];
     print BOLD BLUE "seq : $FSTART $FEND\n";print RESET;
     }
-  if (@ARGV[$arg] eq "-zeropad4") 
+  if (@ARGV[$arg] eq "-zeropad") 
     {
-    $ZEROPAD=1;
-    print "zeropad4 ...\n";
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad : $ZEROPAD\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -284,6 +286,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $LOG1="";
     $LOG2="";
     print "verbose ...\n";
+    }
+  if (@ARGV[$arg] eq "-continue") 
+    {
+    $CONTINUE=@ARGV[$arg+1];
+    print "continuing at frame : $CONTINUE\n";
     }
   if (@ARGV[$arg] eq "-size") 
     {
@@ -372,6 +379,40 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("final seq : $FSTART $FEND\n");
     }
     
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+print ("debug : continue $CONTINUE\n");
+if ($CONTINUE == -1) 
+    {
+    $CONTINUE_WITH = 1;
+    $NUMIMAGES=$FEND-$FSTART+1;
+    }
+else 
+    {
+    $CONTINUE_WITH =$CONTINUE-$FSTART+1;
+    $NUMIMAGES=$FEND-$CONTINUE+1;
+    }
+print ("debug : start $FSTART end $FEND continue_with $CONTINUE_WITH numimages $NUMIMAGES\n");
+
 #style
 $SSTYLE=$STYLE;
 $SSTYLE=~ s/.jpg//;
@@ -381,8 +422,6 @@ $SSTYLE=~ s/\.//;
 #content
 @tmp=split(/\./,$CONTENT);
 $CCONTENT=@tmp[0];
-
-$NUMIMAGES=$FEND-$FSTART+1;
 
 if ($IN_USE_SHOT)
     {
@@ -426,7 +465,7 @@ else
     $touchcmd="touch $OOUTDIR/$OUT";
     system $touchcmd;
 
-    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE";
+    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH";
     if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
     if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
     if ($DOINDEX) {$cmd=$cmd." -doindex $DOINDEX -indexcolor $INDEXCOLOR -indexmethod $INDEXMETHOD -dithering $DITHERING -indexroll $INDEXROLL";}
@@ -458,7 +497,8 @@ if ($CSV)
     $FEND=@line[4];
     $LENGTH=@line[5];   
     $process=@line[6];
-    $suffix=@line[7];
+    $CONTINUE=@line[7];
+    if ($CONTINUE eq "") {$CONTINUE = -1}
     if ($process)
       {
       neural();

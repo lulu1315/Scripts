@@ -36,23 +36,20 @@ $SHOT="";
 $INDIR="$CWD/originales";
 $IN="ima";
 $IN_USE_SHOT=0;
-$OUTDIR="$CWD/gmic";
+$OUTDIR="$CWD/repaired";
 $OUT="ima";
 $OUT_USE_SHOT=0;
+$SPLITSCALE=6;
+$BASESCALE=0;
+$DETAILSCALE=0;
 $ZEROPAD=4;
 $FORCE=0;
 $EXT="png";
-$EXTIN="\$EXT";
-$EXTOUT="\$EXT";
 $VERBOSE=0;
-$OP="";
 $CSV=0;
-$LOG1=">/var/tmp/gmic.log";
-$LOG2="2>/var/tmp/gmic.log";
-#JSON
-$CAPACITY=500;
-$SKIP="-force";
-$FPT=5;
+$CLEAN=1;
+$LOG1=">/var/tmp/$scriptname.log";
+$LOG2="2>/var/tmp/$scriptname.log";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -76,7 +73,7 @@ sub confstr {
   }
 
 sub autoconf {
-open (AUTOCONF,">","gmic_auto.conf");
+open (AUTOCONF,">","$scriptname\_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
@@ -88,72 +85,14 @@ print AUTOCONF confstr(IN_USE_SHOT);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUT);
 print AUTOCONF confstr(OUT_USE_SHOT);
+print AUTOCONF "#decompose\n";
+print AUTOCONF confstr(SPLITSCALE);
+print AUTOCONF "#misc\n";
 print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
-}
-
-sub exrfileconf {
-print AUTOCONF "\$EXTIN=\"exr\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-apply_gamma 2.2 -n 0,255\"\;\n";
-}
-
-sub gradientrefillconf {
-print AUTOCONF "\$INBLUR=10\;\n";
-print AUTOCONF "\$OUTBLUR=2\;\n";
-print AUTOCONF "\$REFILL=.1\;\n";
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"exr\"\;\n";
-print AUTOCONF "\$OP=\"-blur \$INBLUR -luminance -gradient 100%,100%,1,1 -a[0,1,2] c --norm -le[1] \$REFILL -inpaint[0] [1],0 -b[0] \$OUTBLUR -rm[1]\"\;\n";
-}
-
-sub gradientnormconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"exr\"\;\n";
-print AUTOCONF "\$GRADIENTBLUR=5\;\n";
-print AUTOCONF "\$OP=\"-luminance -gradient_norm -blur \$GRADIENTBLUR -div 255\"\;\n";
-}
-
-sub grainconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-fx_emulate_grain 0,1,0.2,100,0,0,0,0,0,0,0,0\"\;\n";
-}
-
-sub smoothconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-fx_dreamsmooth 10,0,1,1,0,0.8,0,24,0\"\;\n";
-}
-
-sub redrefillconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-fx_inpaint_diffusion 75,0,20,255,0,0,255,4\"\;\n";
-}
-
-sub rollingconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$CONTENTBLUR=\"2\"\;\n";
-print AUTOCONF "\$OP=\"-fx_sharp_abstract \$CONTENTBLUR,10,0.5,0,0\"\;\n";
-}
-
-sub otsuconf {
-print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
-print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-luminance -equalize 256,10%,90% -otsu 255 -n 0,255\"\;\n";
-}
-
-sub nopresetconf {
-print AUTOCONF confstr(EXTIN);
-print AUTOCONF confstr(EXTOUT);
-print AUTOCONF confstr(OP);
-}
-
-sub finishconf {
+print AUTOCONF confstr(CLEAN);
 print AUTOCONF "#json - submit to afanasy\n";
 print AUTOCONF confstr(CAPACITY);
 print AUTOCONF confstr(SKIP);
@@ -165,15 +104,7 @@ close AUTOCONF;
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
-	print "-autoconf [preset]\n";
-	print "    exrfile : color exr file input\n";            
-	print "    gradientnorm : gradient normalization\n";
-	print "    gradientrefill : gradient refill\n";
-	print "    grain : emulate grain\n";
-	print "    smooth : apply dreamsmooth\n";
-	print "    redrefill : refill full red color\n";
-    print "    rolling : apply rolling guidance\n";
-    print "    otsu : otsu binarisation\n";
+	print "-autoconf\n";
 	print "-conf file.conf\n";
 	print "-f startframe endframe\n";
 	print "-step step[1]\n";
@@ -185,7 +116,6 @@ if ($#ARGV == -1) {
 	print "-zeropad [4]\n";
 	print "-force [0]\n";
 	print "-verbose\n";
-    print "-op\n";
     print "-csv csv_file.csv\n";
     print "-json [submit to afanasy]\n";
     print "-xml  [submit to royalrender]\n";
@@ -196,54 +126,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   {
   if (@ARGV[$arg] eq "-autoconf") 
     {
-    print "writing gmic_auto.conf : mv gmic_auto.conf gmic.conf\n";
+    print "writing $scriptname\_auto.conf : mv $scriptname\_auto.conf $scriptname.conf\n";
     autoconf();
-    if (@ARGV[$arg+1] eq "")
-      {
-      print "... no preset \n";
-      nopresetconf();
-      }
-    if (@ARGV[$arg+1] eq "exrfile")
-      {
-      print "... using color exr file input \n";
-      exrfileconf();
-      }
-    if (@ARGV[$arg+1] eq "gradientrefill")
-      {
-      print "... using gradient refill preset \n";
-      gradientrefillconf();
-      }
-    if (@ARGV[$arg+1] eq "redrefill")
-      {
-      print "... using red refill preset \n";
-      redrefillconf();
-      }
-    if (@ARGV[$arg+1] eq "rolling")
-      {
-      print "... using rolling preset \n";
-      rollingconf();
-      }
-    if (@ARGV[$arg+1] eq "otsu")
-      {
-      print "... using otsu preset \n";
-      otsuconf();
-      }
-    if (@ARGV[$arg+1] eq "gradientnorm")
-      {
-      print "... using gradient normalization preset \n";
-      gradientnormconf();
-      }
-    if (@ARGV[$arg+1] eq "grain")
-      {
-      print "... using emulate grain preset \n";
-      grainconf();
-      }
-    if (@ARGV[$arg+1] eq "smooth")
-      {
-      print "... using dreamsmooth preset \n";
-      smoothconf();
-      }
-    finishconf();
     exit;
     }
   if (@ARGV[$arg] eq "-conf") 
@@ -306,11 +190,6 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $LOG1="";
     $LOG2="";
     print "verbose on\n";
-    }
-  if (@ARGV[$arg] eq "-op") 
-    {
-    $OP=@ARGV[$arg+1];
-    print "gmic op : $OP\n";
     }
   if (@ARGV[$arg] eq "-csv") 
     {
@@ -386,6 +265,7 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userNa
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}
+$pid=$$;
 
 sub csv {
 #auto frames
@@ -422,27 +302,28 @@ for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
 #
 if ($ZEROPAD == 4) {$ii=sprintf("%04d",$i);}
 if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
+
 #
 if ($IN_USE_SHOT)
     {
-    $IIN="$INDIR/$SHOT/$IN.$ii.$EXTIN";
+    $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
     }
 else
     {
-    $IIN="$INDIR/$IN.$ii.$EXTIN";
+    $IIN="$INDIR/$IN.$ii.$EXT";
     }
     
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
+    $OOUT="$OOUTDIR/$OUT\_wave0.$ii.$EXT";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
 else
     {
     $OOUTDIR="$OUTDIR";
-    $OOUT="$OUTDIR/$OUT.$ii.$EXTOUT";
+    $OOUT="$OUTDIR/$OUT\_wave0.$ii.$EXT";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
@@ -455,20 +336,36 @@ else {
   if ($VERBOSE) {print "$touchcmd\n";}
   #verbose($touchcmd);
   system $touchcmd;
-  $cmd="$GMIC -i $IIN $OP -o $OOUT $LOG2";
-  verbose($cmd);
+  #workdir
+  $WORKDIR="$OOUTDIR/w$ii\_$pid";
+  if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
+  $cmd="$GMIC -i $IIN -fx_split_details_wavelets $SPLITSCALE,$BASESCALE,$DETAILSCALE -o $WORKDIR/tmp.png $LOG2";
+  verbose $cmd;
+  print "decompose wavelets [scales : $SPLITSCALE]\n";
   system $cmd;
+  for ($j = 0 ;$j < $SPLITSCALE; $j++)
+    {
+    $jj=sprintf("%06d",$j);
+    $mvcmd="mv $WORKDIR/tmp_$jj.png $OOUTDIR/$OUT\_wave$j.$ii.$EXT";
+    verbose($mvcmd);
+    system $mvcmd;
+    }
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-  #print BOLD YELLOW "gmic : frame $ii took $hlat:$mlat:$slat \n\n";print RESET;
   #-----------------------------#
   #afanasy parsing format
   print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
   #print "\n";
+  if ($CLEAN)
+    {
+    $cleancmd="rm -r $WORKDIR";
+    verbose($cleancmd);
+    system $cleancmd;
+    }
   }
 }
 }
@@ -496,14 +393,6 @@ else
   csv();
   }
   
-#gestion des keyframes
-sub keyframe {
-    @keyvals = split(/,/,$_[0]);
-    #print "keyvals = @keyvals\n";
-    $key1=$keyvals[0];
-    $key2=$keyvals[1];
-    return $key1+$keycount*(($key2-$key1)/($KEYFRAME-1));
-    }
 #-------------------------------------------------------#
 #---------gestion des timecodes ------------------------#
 #-------------------------------------------------------#
@@ -572,14 +461,12 @@ $JOBNAME="$scriptname\_$OUT\_$SHOT";
 if ($OUT_USE_SHOT)
     {
     $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP -shot $SHOT";
-    if ($ZEROPAD == 4) { $FILES="$OUTDIR/$SHOT/$OUT.\@####\@.$EXTOUT";}
-    if ($ZEROPAD == 5) { $FILES="$OUTDIR/$SHOT/$OUT.\@#####\@.$EXTOUT";}
+    $FILES="$OUTDIR/$SHOT/$OUT.\@####\@.$EXTOUT";
     }
 else
     {
     $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP";
-    if ($ZEROPAD == 4) { $FILES="$OUTDIR/$OUT.\@####\@.$EXTOUT";}
-    if ($ZEROPAD == 5) { $FILES="$OUTDIR/$OUT.\@#####\@.$EXTOUT";}
+    $FILES="$OUTDIR/$OUT.\@####\@.$EXTOUT";
     }
 $HOSTNAME = `hostname -s`;
 chop $HOSTNAME;

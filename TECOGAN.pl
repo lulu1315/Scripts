@@ -30,11 +30,13 @@ print BOLD BLUE "----------------------\n";print RESET;
 
 $INDIR="$CWD/originales";
 $OUTDIR="$CWD/superres";
+$LEN=-1;
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
 	print "-idir dirin\n";
 	print "-odir dirout\n";
+	print "-len length [-1=all]\n";
 	exit;
 }
 
@@ -50,6 +52,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $OUTDIR=@ARGV[$arg+1];
     print "out dir : $OUTDIR\n";
     }
+  if (@ARGV[$arg] eq "-len") 
+    {
+    $LEN=@ARGV[$arg+1];
+    print "length : $LEN\n";
+    }
 }
     
 $userName =  $ENV{'USER'}; 
@@ -61,6 +68,6 @@ if ($userName eq "dev18" || $userName eq "render")	#
 if (-e "$OUTDIR") {print "directory $OUTDIR already exists ..";}
 else {$cmd="mkdir $OUTDIR";system $cmd;}
 
-$tecocmd="$TECOGAN --output_dir $OUTDIR --input_dir_LR $INDIR --summary_dir $OUTDIR";
+$tecocmd="$TECOGAN --output_dir $OUTDIR --input_dir_LR $INDIR --input_dir_len $LEN --summary_dir $OUTDIR";
 print "$tecocmd\n";
 system $tecocmd;

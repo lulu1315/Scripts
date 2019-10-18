@@ -30,6 +30,7 @@ $IN_USE_SHOT=0;
 $OUTDIR="$CWD";
 $OUT="originales/ima_1of2";
 $OUT_USE_SHOT=0;
+$FILLGAPS=0;
 $ZEROPAD=1;
 $FORCE=0;
 $EXT="png";
@@ -42,6 +43,7 @@ if ($#ARGV == -1) {
 	print "-f startframe endframe [1,100]\n";
     print "-fstep step [2]\n";   
     print "-fstepout stepout [1]\n";   
+    print "-fillgaps [0]\n";   
     print "-fsartout frame start out [startframe]\n";   
 	print "-idir dirin\n";
 	print "-i imagein\n";
@@ -77,6 +79,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $FSTARTOUT=@ARGV[$arg+1];
     print "frame start out : $FSTARTOUT\n";
+    }
+  if (@ARGV[$arg] eq "-fillgaps") 
+    {
+    $FILLGAPS=1;
+    print "filling gaps\n";
     }
   if (@ARGV[$arg] eq "-idir") 
     {
@@ -127,6 +134,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
 else {$cmd="mkdir $OUTDIR";print "$cmd\n";system $cmd;}
     
+if ($FSTEPOUT == 1) {$FILLGAPS=0;}
+
 sub csv {
 
     if ($OUT_USE_SHOT)
@@ -141,7 +150,8 @@ sub csv {
         }
     
     $j=$FSTARTOUT;
-    for ($i = $FSTART ;$i <= $FEND; $i = $i + $FSTEP)
+    
+for ($i = $FSTART ;$i <= $FEND; $i = $i + $FSTEP)
     {
     $ii=sprintf("%04d",$i);
     $jj=sprintf("%04d",$j);
@@ -153,19 +163,42 @@ sub csv {
         {
         $IIN="$INDIR/$IN.$ii.$EXT";
         }
-    $OOUT="$OOUTDIR/$OUT.$jj.$EXT";
-
-    if (-e $OOUT && !$FORCE)
-        {print "frame $OOUT exists ... skipping\n";}
-    else
+    
+    if ($FILLGAPS)
         {
-        $cmd="cp $IIN $OOUT";
-        print "$cmd\n";
-        system $cmd;
+        for ($k = $j ;$k < $j+$FSTEPOUT; $k++)
+            {
+            $kk=sprintf("%04d",$k);
+            $OOUT="$OOUTDIR/$OUT.$kk.$EXT";
+            if (-e $OOUT && !$FORCE)
+                {print "frame $OOUT exists ... skipping\n";}
+            else
+                {
+                if ($k <= ($FSTARTOUT+($FEND-$FSTART)))
+                    {
+                    $cmd="cp $IIN $OOUT";
+                    print "$cmd\n";
+                    system $cmd;
+                    }
+                }
+            }
         }
-    $j = $j + $FSTEPOUT;
+        else
+            {
+            $OOUT="$OOUTDIR/$OUT.$jj.$EXT";
+            if (-e $OOUT && !$FORCE)
+                {print "frame $OOUT exists ... skipping\n";}
+            else
+                {
+                $cmd="cp $IIN $OOUT";
+                print "$cmd\n";
+                system $cmd;
+                }
+            }
+        $j = $j + $FSTEPOUT;
+        }
     }
-}
+
 
 if ($CSV)
   {

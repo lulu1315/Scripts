@@ -27,6 +27,7 @@ print BOLD BLUE "gpu     : $GPUTYPE (x$GPUS)\n";print RESET;
 print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
 print BOLD BLUE "----------------------\n";print RESET;
+$pid=$$;
 
 #defaults
 $FSTART=1;
@@ -109,7 +110,7 @@ if ($userName eq "dev18")	#
   {
   $DUPE="/usr/bin/findimagedupes";
   $GMIC="/usr/bin/gmic";
-  $AVERAGE="python /shared/Scripts/python/average.py";
+  $AVERAGE="python3 /shared/Scripts/python/average.py";
   }
 #$INDIR =~ s/\///;    
 #$OUTDIR="$INDIR/dupes";
@@ -148,9 +149,9 @@ if ($METHOD == 1)
     }
 if ($METHOD == 2)
     {
-    $cmd="$GMIC $A $B sub abs -o tmp.png $LOG2";
+    $cmd="$GMIC $A $B sub abs -o tmp_$pid.png $LOG2";
     system $cmd;
-    $cmd="$AVERAGE -i tmp.png";
+    $cmd="$AVERAGE -i tmp_$pid.png";
     $average=`$cmd`;
     chop $average;
     #print("$cmd\n");

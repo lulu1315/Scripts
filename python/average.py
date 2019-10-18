@@ -18,4 +18,4 @@ gray = cv2.cvtColor(input_image, cv2.COLOR_BGR2GRAY)
 #v = np.median(gray)
 v = np.average(gray)
 #print "median %f" % v
-print v
+print (v)

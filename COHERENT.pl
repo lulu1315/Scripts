@@ -81,6 +81,7 @@ $DESPECKLEMAXAREA=5;
 $DESPECKLETOLERANCE=30;
 $INVFINAL=0;
 #
+$ZEROPAD=4;
 $FORCE=0;
 $VERBOSE=0;
 $CSV=0;
@@ -166,6 +167,7 @@ print AUTOCONF confstr(DESPECKLEMAXAREA);
 print AUTOCONF confstr(DESPECKLETOLERANCE);
 print AUTOCONF confstr(INVFINAL);
 print AUTOCONF "#misc\n";
+print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
@@ -257,6 +259,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $SHOT=@ARGV[$arg+1];
     print "shotname : $SHOT\n";
+    }
+  if (@ARGV[$arg] eq "-zeropad") 
+    {
+    $ZEROPAD=@ARGV[$arg+1];
+    print "zeropad $ZEROPAD ...\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -414,9 +421,15 @@ if ($FSTART eq "auto" || $FEND eq "auto")
 for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
 {
 
-#
-$ii=sprintf("%04d",$i);
-#
+if ($ZEROPAD == 4)
+    {
+    $ii=sprintf("%04d",$i);
+    }
+if ($ZEROPAD == 5)
+    {
+    $ii=sprintf("%05d",$i);
+    }
+
 if ($IN_USE_SHOT)
     {
     $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
