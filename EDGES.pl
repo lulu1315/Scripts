@@ -105,6 +105,8 @@ $CLDSIGMAM=2;
 $CLDSIGMAC=1;
 $CLDRHO=.995;
 $CLDTAU=.99;
+#12 opencv sobel
+$GRADBLUR=3;
 #post process
 $DOPEL=0;
 $DOPELPLY=0;
@@ -238,6 +240,8 @@ print AUTOCONF confstr(CLDSIGMAC);
 print AUTOCONF confstr(CLDRHO);
 print AUTOCONF confstr(CLDTAU);
 print AUTOCONF "#12 : globalPg\n";
+print AUTOCONF "#13 : opencv sobel\n";
+print AUTOCONF confstr(GRADBLUR);
 print AUTOCONF "#postprocess\n";
 print AUTOCONF confstr(DOPEL);
 print AUTOCONF confstr(DOPELPLY);
@@ -474,6 +478,7 @@ if ($userName eq "dev18")	#
   $CLD="/shared/foss-18/Coherent-Line-Drawing/build/CLD-cli";
   $CLDOFLOW="/shared/foss-18/Coherent-Line-Drawing/build/CLD-oflow-cli";
   $GPB="/shared/foss-18/gPb-GSoC/opencv_gpb/build/gpb_main";
+  $SOBEL="/shared/foss-18/opencv-code/sobel/build/sobel";
   $ENV{PATH} = "/shared/foss-18/Pink/linux/bin:$ENV{'PATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/ED/ED:$ENV{'LD_LIBRARY_PATH'}";
   }
@@ -1371,6 +1376,73 @@ else
         system $cmd;
         }
      if ($DILATE)
+        {
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC $PIN -dilate_circ $DILATE -b 1 -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> dilate_circ [dilate:$DILATE]\n");
+        system $cmd;
+        }
+    if ($EDGESMOOTH) 
+        {
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC $PIN -fx_dreamsmooth 10,0,1,0.8,0,0.8,0,24,0 -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> dreamsmooth\n");
+        system $cmd;
+        }
+    if ($DOPOTRACE)
+        {
+        #convert to pgm
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$GMIC -i $PIN -o $POUT $LOG2";
+        verbose($cmd);
+        print("--------> gmic : convert to pgm for potrace\n");
+        system $cmd;
+        #potrace
+        $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$POTRACE $PIN -o $POUT -g -k $BLACKLEVEL";
+        verbose($cmd);
+        print("--------> potrace [blacklevel:$BLACKLEVEL]\n");
+        system $cmd;
+        #bug potrace
+        $cmd="convert $POUT $OOUT";
+        verbose($cmd);
+        print("--------> potrace bug\n");
+        system $cmd;
+        }
+    else
+        {
+        #--> output
+        $cmd="$GMIC -i $POUT -to_colormode 3 -o $OOUT $LOG2";
+        verbose($cmd);
+        system $cmd;
+        }
+    if ($DODESPECKLE) 
+        {
+        $cmd="$GMIC $OOUT gcd_despeckle $DESPECKLETOLERANCE,$DESPECKLEMAXAREA -o $OOUT $LOG2";
+        verbose($cmd);
+        print("--------> despeckle [tolerance:$DESPECKLETOLERANCE max area:$DESPECKLEMAXAREA\n");
+        system $cmd;
+        }
+    if ($INVFINAL)
+        {
+        $cmd="$GMIC $OOUT $GMICINV -o $OOUT $LOG2";
+        verbose($cmd);
+        print("--------> inverting final\n");
+        system $cmd;
+        }
+    }
+    if ($METHOD == 13 || $METHOD == 0)
+        {
+        $OOUT="$OOUTDIR/$OUT$PARAMS\_m13.$ii.$EXT";
+        $I=1;
+        $PIN="$WORKDIR/$I.png";$I++;$POUT="$WORKDIR/$I.pgm";
+        $cmd="$SOBEL $PIN $POUT $GRADBLUR";
+        verbose($cmd);
+        print("--------> opencv sobel\n");
+        system $cmd;
+    if ($DILATE)
         {
         $PIN="$WORKDIR/$I.pgm";$I++;$POUT="$WORKDIR/$I.pgm";
         $cmd="$GMIC $PIN -dilate_circ $DILATE -b 1 -o $POUT $LOG2";

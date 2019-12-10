@@ -40,7 +40,7 @@ $IN_USE_SHOT=0;
 $OUTDIR="$CWD/stippling";
 $OUT="ima";
 $OUT_USE_SHOT=0;
-$FLOWMODE=3;
+$FLOWMODE=1;
 $FLOWDIR="$CWD/opticalflow";
 $SIZE=0;
 #preprocess
@@ -123,9 +123,10 @@ print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(SIZE);
 print AUTOCONF confstr(FLOWMODE);
 print AUTOCONF "#flowmode\n";
-print AUTOCONF "#1:precomputed backward 2:precomputed forward\n";
-print AUTOCONF "#3:computed backward 4:computed forward\n";
-print AUTOCONF confstr(FLOWDIR);
+print AUTOCONF "#0:no optical flow 1:computed backward\n";
+#print AUTOCONF "#1:precomputed backward 2:precomputed forward\n";
+#print AUTOCONF "#3:computed backward 4:computed forward\n";
+#print AUTOCONF confstr(FLOWDIR);
 print AUTOCONF "#preprocess\n";
 print AUTOCONF confstr(ROLLING);
 print AUTOCONF confstr(BRIGHTNESS);
@@ -324,48 +325,53 @@ if ($ZEROPAD == 4)
     {
     $ii=sprintf("%04d",$i);
     $jj=sprintf("%04d",$i-1);
+    $kk=sprintf("%04d",$i+1);
     }
 if ($ZEROPAD == 5)
     {
     $ii=sprintf("%05d",$i);
     $jj=sprintf("%05d",$i-1);
+    $kk=sprintf("%05d",$i+1);
     }
     
 if ($IN_USE_SHOT)
     {
     $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
     $JJN="$INDIR/$SHOT/$IN.$jj.$EXT";
+    $KKN="$INDIR/$SHOT/$IN.$kk.$EXT";
     }
 else
     {
     $IIN="$INDIR/$IN.$ii.$EXT";
     $JJN="$INDIR/$IN.$jj.$EXT";
+    $KKN="$INDIR/$IN.$kk.$EXT";
     }
     
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT$PARAMS.$ii.$EXT";
+    $OOUT="$OOUTDIR/$OUT$PARAMS.$ii.png";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
 else
     {
     $OOUTDIR="$OUTDIR";
-    $OOUT="$OUTDIR/$OUT$PARAMS.$ii.$EXT";
+    $OOUT="$OUTDIR/$OUT$PARAMS.$ii.png";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
 
 #oflow
-if ($FLOWMODE == 1) {$OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.flo"};
-if ($FLOWMODE == 2) {$OFLOW="$FLOWDIR/$SHOT/dual/forward_$jj\_$ii.flo"};
+#if ($FLOWMODE == 1) {$OFLOW="$FLOWDIR/$SHOT/dual/backward_$ii\_$jj.flo"};
+#if ($FLOWMODE == 2) {$OFLOW="$FLOWDIR/$SHOT/dual/forward_$jj\_$ii.flo"};
 #working dir
 $WORKDIR="$OOUTDIR/w$ii\_$pid";
 #work frames
 $WINPUT     ="$WORKDIR/preprocess.$EXT";
 $WPREV      ="$WORKDIR/previous.$EXT";
 $WCUR       ="$WORKDIR/current.$EXT";
+$WNEXT      ="$WORKDIR/next.$EXT";
 
 if (-e $OOUT && !$FORCE)
    {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
@@ -382,7 +388,7 @@ else {
   if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
 #preprocessing input
   if ($SIZE != 0) 
-    {$GMIC0="-resize2dy $SIZE,5";} else {$GMIC0="";}
+    {$GMIC0="-resize2dx $SIZE,5";} else {$GMIC0="";}
   if ($ROLLING != 0) 
     {$GMIC1="-fx_sharp_abstract $ROLLING,10,0.5,0,0";} else {$GMIC1="";}
   if (($BRIGHTNESS != 0) || ($CONTRAST != 0) || ($GAMMA != 0) || ($SATURATION != 0)) 
@@ -408,7 +414,7 @@ else {
             
   if ($i == $FSTART || $FLOWMODE == 0)
     {
-    $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR 0 0";
+    $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR 0 0 $i";
     verbose($stipplecmd);
     system $stipplecmd;
     }
@@ -425,21 +431,31 @@ else {
         print("--------> resize current frame\n");
         verbose($cmd);
         system $cmd;
+        if ($i == $FEND) {
+            $cmd="cp $WCUR $WNEXT";
+            print("--------> last frame ... copy current\n");
         }
-    else
-        {
-        $cmd="cp $IIN $WCUR;cp $JJN $WPREV";
+        else {
+            $cmd="$GMIC -i $KKN -resize2dy $SIZE,5 -cut 0,255 -o $WNEXT $LOG2";
+            print("--------> resize next frame\n");
+        }
         verbose($cmd);
         system $cmd;
         }
-    if ($FLOWMODE == 1 || $FLOWMODE == 2)
+    else
         {
-        $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR $FLOWMODE $HYSTERESISSTRATEGY $OOUTDIR/$OUT$PARAMS.$jj.ply $OFLOW ";
+        $cmd="cp $IIN $WCUR;cp $JJN $WPREV;cp $KKN $WNEXT";
+        verbose($cmd);
+        system $cmd;
         }
-    if ($FLOWMODE == 3 || $FLOWMODE == 4)
-        {
-        $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR $FLOWMODE $HYSTERESISSTRATEGY $OOUTDIR/$OUT$PARAMS.$jj.ply $WPREV $WCUR";
-        }
+#    if ($FLOWMODE == 1 || $FLOWMODE == 2)
+#        {
+#        $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR $FLOWMODE $HYSTERESISSTRATEGY $i $OOUTDIR/$OUT$PARAMS.$jj.ply $OFLOW";
+#        }
+#    if ($FLOWMODE == 3 || $FLOWMODE == 4)
+#        {
+        $stipplecmd="$STIPPLING $WINPUT $OOUTDIR/$OUT$PARAMS.$ii $INITIALPOINTS $INITIALPOINTSIZE $ADAPTATIVEPOINTSIZE $POINTSIZEMIN $POINTSIZEMAX $SUPERSAMPLINGFACTOR $MAXITERATIONS $HYSTERESIS $HYSTERESISDELTA $STIPPLESIZEFACTOR $FLOWMODE $HYSTERESISSTRATEGY $i $OOUTDIR/$OUT$PARAMS.$jj.ply $WPREV $WCUR $WNEXT";
+#        }
     verbose($stipplecmd);
     system $stipplecmd;
     }

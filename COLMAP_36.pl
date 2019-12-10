@@ -13,6 +13,7 @@ print "project : $PROJECT\n";
 
 #defaults
 $INDIR="originales";
+$SHOT="";
 #sparse
 $DOSPARSE=1;
 $SIFTMAXIMAGESIZE=3096;
@@ -60,6 +61,7 @@ sub autoconf {
 open (AUTOCONF,">","colmap_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(INDIR);
+print AUTOCONF confstr(SHOT);
 print AUTOCONF confstr(DOSPARSE);
 print AUTOCONF confstr(SIFTMAXIMAGESIZE);
 print AUTOCONF confstr(CAMERAMODEL);
@@ -115,18 +117,21 @@ if ($userName eq "dev18")	#a Paris
   $VOCABULARY="/shared/foss-18/colmap3.6/vocabulary/vocab_tree_flickr100K_words32K.bin";
   }
   
-$COLMAPDIR="COLMAP_$INDIR";
+#$COLMAPDIR="COLMAP_$INDIR";
+$IINDIR="$INDIR/$SHOT";
+$COLMAPDIR="colmap/$SHOT";
 
-$cmd="mkdir $CWD/$COLMAPDIR";
-print "$cmd\n";
-system $cmd;
+if (-e "$CWD/colmap") {print "$CWD/colmap already exists\n";}
+    else {$cmd="mkdir $CWD/colmap";system $cmd;}
+if (-e "$CWD/$COLMAPDIR") {print "$CWD/$COLMAPDIR already exists\n";}
+    else {$cmd="mkdir $CWD/$COLMAPDIR";system $cmd;}
 
 if ($DOSPARSE)
 {
 #
 ($s1,$m1,$h1)=localtime(time);
 #
-$cmd="$COLMAPBIN feature_extractor --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$INDIR --SiftExtraction.max_image_size $SIFTMAXIMAGESIZE --ImageReader.camera_model $CAMERAMODEL --ImageReader.single_camera $SINGLECAMERA";
+$cmd="$COLMAPBIN feature_extractor --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$IINDIR --SiftExtraction.max_image_size $SIFTMAXIMAGESIZE --ImageReader.camera_model $CAMERAMODEL --ImageReader.single_camera $SINGLECAMERA";
 print "$cmd\n";
 system $cmd;
 #
@@ -149,11 +154,11 @@ system $cmd;
 #
 if ($GUI)
     {
-    $cmd="$COLMAPBIN gui --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$INDIR";
+    $cmd="$COLMAPBIN gui --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$IINDIR";
     }
 else
     {
-    $cmd="$COLMAPBIN mapper --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$INDIR --output_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE";
+    $cmd="$COLMAPBIN mapper --database_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE.db --image_path $CWD/$IINDIR --output_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE";
     }
 print "$cmd\n";
 system $cmd;
@@ -175,7 +180,7 @@ $cmd="mkdir $CWD/$COLMAPDIR/dense$DENSEMAXIMAGESIZE";
 print "$cmd\n";
 system $cmd;
 #
-$cmd="$COLMAPBIN image_undistorter --image_path $CWD/$INDIR --input_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE/0 --output_path $CWD/$COLMAPDIR/dense$DENSEMAXIMAGESIZE --output_type COLMAP --max_image_size $DENSEMAXIMAGESIZE";
+$cmd="$COLMAPBIN image_undistorter --image_path $CWD/$IINDIR --input_path $CWD/$COLMAPDIR/sift$SIFTMAXIMAGESIZE/0 --output_path $CWD/$COLMAPDIR/dense$DENSEMAXIMAGESIZE --output_type COLMAP --max_image_size $DENSEMAXIMAGESIZE";
 print "$cmd\n";
 system $cmd;
 #convert to bundler workspace_format

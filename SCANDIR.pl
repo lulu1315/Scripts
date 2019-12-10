@@ -37,10 +37,11 @@ $OUTDIR="./";
 $ZEROPAD=4;
 $EXT="png";
 $FPS=25;
-$FORMAT="ffmpeg_prores";
+$FORMAT="prores";
 $PRORESCODEC="-c:v prores_ks -profile:v 3";
 $H264CODEC="-c:v libx264 -crf 10 -pix_fmt yuv420p";
 $H264CODEC="-c:v libx264 -crf 10";
+$DNXHDCODEC="-c:v dnxhd -f mxf_opatom -vf \"scale=1920:1080,fps=25,format=yuv422p\" -b:v 120M";
 $EXECUTE=0;
 $VERBOSE=1;
 
@@ -51,7 +52,7 @@ if ($#ARGV == -1) {
 	print "-ext image extension [$EXT]\n";
 	print "-rate fps [$FPS]\n";
 	print "-zeropad [$ZEROPAD]\n";
-    print "-format [$FORMAT] ffmpeg_prores ffmpeg_h264\n";
+    print "-format [$FORMAT] prores h264 dnxhd\n";
     print "-exec : execute command (ffmpeg only) [$EXECUTE]\n";
 	exit;
 }
@@ -163,7 +164,7 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                         print ("$shot,$root,\%0$ZEROPAD\d,$EXT,$min,$max\n");
                         }
                     }
-                if ($FORMAT eq "ffmpeg_prores")
+                if ($FORMAT eq "prores")
                 {
                 if ($max == $min)
                     {print BOLD RED "only one frame ... skipping\n";print RESET;}
@@ -175,13 +176,26 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                     if ($EXECUTE) {system ($cmd);}
                     }
                 }
-                if ($FORMAT eq "ffmpeg_h264")
+                if ($FORMAT eq "h264")
                 {
                 if ($max == $min)
                     {print BOLD RED "only one frame ... skipping\n";print RESET;}
                 else
                     {
                     $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.\%0$ZEROPAD\d.$EXT $H264CODEC $OUTDIR/$sshot\_$root.mov";
+                    #$cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot.mov";
+                    print ("$cmd\n");
+                    if ($EXECUTE) {system ($cmd);}
+                    }
+                }
+                if ($FORMAT eq "dnxhd")
+                #http://johnwarburton.net/blog/?p=50731
+                {
+                if ($max == $min)
+                    {print BOLD RED "only one frame ... skipping\n";print RESET;}
+                else
+                    {
+                    $cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.\%0$ZEROPAD\d.$EXT $DNXHDCODEC -metadata material_package_name=\"$root\" $OUTDIR/$root.mxf";
                     #$cmd = "ffmpeg -start_number $min -r $FPS $GAMMA -i $shot/$root.%04d.$EXT $PRORESCODEC $OUTDIR/$sshot.mov";
                     print ("$cmd\n");
                     if ($EXECUTE) {system ($cmd);}

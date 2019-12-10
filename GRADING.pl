@@ -22,23 +22,35 @@ $EXTOUT="png";
 $FORCE=0;
 $ALL=0;
 
+$InstantConsumer=0;
+$InstantPro=0;
+$FujiXTransIII=0;
+$NegativeColor=0;
+$NegativeNew=0;
+$NegativeOld=0;
+$PrintFilm=0;
+$SlideColor=0;
+$AbigailGonzales=0;
+$AlexJordan=0;
+$CreativePack=0;
+$EricEllerbrock=0;
+$FilterGradeCinematic=0;
+$JTSemple=0;
+$LutifyMe=0;
+$Moviz=0;
+$OhadPeretz=0;
+$ON1Photography=0;
+$PictureFx=0;
+$PIXLSUS=0;
+$RocketStock=0;
+$ShamoonAbbasi=0;
+$SmallHDMovieLook=0;
+$Others=0;
+
 if ($#ARGV == -1) {
 	print "usage: GRADING.pl \n";
 	print "-i imagein\n";
 	print "-odir dirout\n";
-	print "-BWfilms   [B&W films]        25x\n";
-    print "-FilterGradeCinematic         8x\n";
-    print "-FujiXtrans  [Fuji Xtrans]    6x\n";
-	print "-InstantC  [Instant consumer] 54x\n";
-	print "-InstantP  [Instant pro]      67x\n";
-	print "-NegativeC [Negative color]   12x\n";
-	print "-NegativeN [Negative new]     9x\n";
-	print "-NegativeO [Negative old]     11x\n";
-	print "-PictureFX [PictureFX]        19x\n";
-	print "-PrintF    [Print films]      12x\n";
-    print "-RocketStock [RocketStock]    35x\n";
-	print "-SlideC    [Slide color]      26x\n";
-	print "-Various   [Various]          62x\n";
 	print "-Tone      [TonePresets]      8x\n";
 	print "-all       [all presets]\n";
 	print "-force [0]\n";
@@ -56,71 +68,6 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $OUTDIR=@ARGV[$arg+1];
     print "out dir : $OUTDIR\n";
-    }
-  if (@ARGV[$arg] eq "-BWfilms") 
-    {
-    $BWfilms=1;
-    print "grading for BWfilms ... \n";
-    }
-  if (@ARGV[$arg] eq "-FilterGradeCinematic") 
-    {
-    $FilterGradeCinematic=1;
-    print "grading for FilterGradeCinematic ... \n";
-    }
-  if (@ARGV[$arg] eq "-FujiXtrans") 
-    {
-    $FujiXtrans=1;
-    print "grading for FujiXtrans ... \n";
-    }
-  if (@ARGV[$arg] eq "-InstantC") 
-    {
-    $InstantC=1;
-    print "grading for InstantC ... \n";
-    }
-  if (@ARGV[$arg] eq "-InstantP") 
-    {
-    $InstantP=1;
-    print "grading for InstantP ... \n";
-    }
-  if (@ARGV[$arg] eq "-NegativeC") 
-    {
-    $NegativeC=1;
-    print "grading for NegativeC ... \n";
-    }
-  if (@ARGV[$arg] eq "-NegativeN") 
-    {
-    $NegativeN=1;
-    print "grading for NegativeN ... \n";
-    }
-  if (@ARGV[$arg] eq "-NegativeO") 
-    {
-    $NegativeO=1;
-    print "grading for NegativeO ... \n";
-    }
-  if (@ARGV[$arg] eq "-PictureFX") 
-    {
-    $PictureFX=1;
-    print "grading for PictureFX ... \n";
-    }
-  if (@ARGV[$arg] eq "-PrintF") 
-    {
-    $PrintF=1;
-    print "grading for PrintF ... \n";
-    }
-  if (@ARGV[$arg] eq "-RocketStock") 
-    {
-    $RocketStock=1;
-    print "grading for RocketStock ... \n";
-    }
-  if (@ARGV[$arg] eq "-SlideC") 
-    {
-    $SlideC=1;
-    print "grading for SlideC ... \n";
-    }
-  if (@ARGV[$arg] eq "-Various") 
-    {
-    $Various=1;
-    print "grading for Various ... \n";
     }
   if (@ARGV[$arg] eq "-Tone") 
     {
@@ -175,11 +122,456 @@ if ($BWfilms || $ALL)
   {
   $PRESETS=25;
   $EXTENSION="BWfilms";
+  $CODE=0;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_bw $i,100,0,0,0,0,0,0,0,0";
+    $OP="-fx_simulate_film $CODE,$i,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($InstantConsumer || $ALL)
+  {
+  $PRESETS=54;
+  $EXTENSION="InstantConsumer";
+  $CODE=1;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,$i,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($InstantPro || $ALL)
+  {
+  $PRESETS=68;
+  $EXTENSION="InstantPro";
+  $CODE=2;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,$i,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($FujiXTransIII || $ALL)
+  {
+  $PRESETS=15;
+  $EXTENSION="FujiXTransIII";
+  $CODE=3;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,$i,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($NegativeColor || $ALL)
+  {
+  $PRESETS=13;
+  $EXTENSION="NegativeColor";
+  $CODE=4;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,0,$i,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($NegativeNew || $ALL)
+  {
+  $PRESETS=39;
+  $EXTENSION="NegativeNew";
+  $CODE=5;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,0,0,$i,0,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($NegativeOld || $ALL)
+  {
+  $PRESETS=44;
+  $EXTENSION="NegativeOld";
+  $CODE=6;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,$i,0,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+
+if ($PrintFilm || $ALL)
+  {
+  $PRESETS=12;
+  $EXTENSION="PrintFilm";
+  $CODE=7;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,$i,0,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($SlideColor || $ALL)
+  {
+  $PRESETS=26;
+  $EXTENSION="SlideColor";
+  $CODE=8;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,$i,512,100,0,0,0,0,0,0,0,50,50";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+#COLOR PRESETS
+if ($AbigailGonzales || $ALL)
+  {
+  $PRESETS=21;
+  $EXTENSION="AbigailGonzales";
+  $CODE=0;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,$i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($AlexJordan || $ALL)
+  {
+  $PRESETS=81;
+  $EXTENSION="AlexJordan";
+  $CODE=1;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,0,$i,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($CreativePack || $ALL)
+  {
+  $PRESETS=33;
+  $EXTENSION="CreativePack";
+  $CODE=2;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,0,0,$i,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($EricEllerbrock || $ALL)
+  {
+  $PRESETS=14;
+  $EXTENSION="EricEllerbrock";
+  $CODE=3;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,0,0,0,$i,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -199,11 +591,23 @@ if ($FilterGradeCinematic || $ALL)
   {
   $PRESETS=8;
   $EXTENSION="FilterGradeCinematic";
+  $CODE=4;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_filtergrade $i,100,0,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,$i,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -219,15 +623,27 @@ if ($FilterGradeCinematic || $ALL)
     }
   }
   
-if ($FujiXtrans || $ALL)
+if ($JTSemple || $ALL)
   {
-  $PRESETS=6;
-  $EXTENSION="FujiXtrans";
+  $PRESETS=14;
+  $EXTENSION="JTSemple";
+  $CODE=5;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_fujixtransii $i,100,0,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,$i,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -243,15 +659,27 @@ if ($FujiXtrans || $ALL)
     }
   }
   
-if ($InstantC || $ALL)
+if ($LutifyMe || $ALL)
   {
-  $PRESETS=54;
-  $EXTENSION="InstantC";
+  $PRESETS=7;
+  $EXTENSION="LutifyMe";
+  $CODE=6;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_instant_consumer $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,$i,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -267,15 +695,27 @@ if ($InstantC || $ALL)
     }
   }
   
-if ($InstantP || $ALL)
+if ($Moviz || $ALL)
   {
-  $PRESETS=67;
-  $EXTENSION="InstantP";
+  $PRESETS=48;
+  $EXTENSION="Moviz";
+  $CODE=7;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_instant_pro $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,$i,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -291,15 +731,27 @@ if ($InstantP || $ALL)
     }
   }
   
-if ($NegativeC || $ALL)
+if ($OhadPeretz || $ALL)
   {
-  $PRESETS=12;
-  $EXTENSION="NegativeC";
+  $PRESETS=7;
+  $EXTENSION="OhadPeretz";
+  $CODE=8;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_negative_color $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,$i,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -315,39 +767,27 @@ if ($NegativeC || $ALL)
     }
   }
   
-if ($NegativeN || $ALL)
+if ($ON1Photography || $ALL)
   {
-  $PRESETS=9;
-  $EXTENSION="NegativeN";
+  $PRESETS=90;
+  $EXTENSION="ON1Photography";
+  $CODE=9;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
-  for ($i = 1 ;$i <= $PRESETS;$i++)
-    {
-    $OP="-fx_emulate_film_negative_new $i,1,100,0,0,0,0,0,0,0";
-    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
-    if (-e "$OUT" && !$FORCE)
-      {
-      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
-      }
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
     else
       {
-      @tmp=split(/ /,$OP);
-      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
-      #print "$cmd\n";
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
       system $cmd;
       }
-    }
-  }
-
-if ($NegativeO || $ALL)
-  {
-  $PRESETS=11;
-  $EXTENSION="NegativeO";
-  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
-  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_negative_old $i,1,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,$i,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -363,15 +803,27 @@ if ($NegativeO || $ALL)
     }
   }
   
-if ($PictureFX || $ALL)
+if ($PictureFx || $ALL)
   {
   $PRESETS=19;
-  $EXTENSION="PictureFX";
+  $EXTENSION="PictureFx";
+  $CODE=10;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_picturefx $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,$i,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -387,39 +839,27 @@ if ($PictureFX || $ALL)
     }
   }
   
-if ($PrintF || $ALL)
+if ($PIXLSUS || $ALL)
   {
-  $PRESETS=12;
-  $EXTENSION="PrintF";
+  $PRESETS=31;
+  $EXTENSION="PIXLSUS";
+  $CODE=11;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
-  for ($i = 1 ;$i <= $PRESETS;$i++)
-    {
-    $OP="-fx_emulate_film_print $i,100,0,0,0,0,0,0,0";
-    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
-    if (-e "$OUT" && !$FORCE)
-      {
-      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
-      }
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
     else
       {
-      @tmp=split(/ /,$OP);
-      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
-      #print "$cmd\n";
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
       system $cmd;
       }
-    }
-  }
-  
-if ($SlideC || $ALL)
-  {
-  $PRESETS=26;
-  $EXTENSION="SlideC";
-  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
-  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_colorslide $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,$i,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -439,11 +879,23 @@ if ($RocketStock || $ALL)
   {
   $PRESETS=35;
   $EXTENSION="RocketStock";
+  $CODE=12;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_rocketstock $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,$i,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {
@@ -459,15 +911,99 @@ if ($RocketStock || $ALL)
     }
   }
   
-if ($Various || $ALL)
+if ($ShamoonAbbasi || $ALL)
   {
-  $PRESETS=62;
-  $EXTENSION="Various";
+  $PRESETS=25;
+  $EXTENSION="ShamoonAbbasi";
+  $CODE=13;
   if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
   else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
   for ($i = 1 ;$i <= $PRESETS;$i++)
     {
-    $OP="-fx_emulate_film_various $i,100,0,0,0,0,0,0,0";
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,$i,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($SmallHDMovieLook || $ALL)
+  {
+  $PRESETS=7;
+  $EXTENSION="SmallHDMovieLook";
+  $CODE=14;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,$i,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
+    if (-e "$OUT" && !$FORCE)
+      {
+      print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;
+      }
+    else
+      {
+      @tmp=split(/ /,$OP);
+      $cmd="$GMIC -i $IN -$OP -text_outline[0]  \"@tmp[0] $i\" -montage H -o $OUT";
+      #print "$cmd\n";
+      system $cmd;
+      }
+    }
+  }
+  
+if ($Others || $ALL)
+  {
+  $PRESETS=69;
+  $EXTENSION="Others";
+  $CODE=15;
+  if (-e "$OUTDIR/$EXTENSION") {print "$OUTDIR/$EXTENSION already exists\n";}
+  else {$cmd="mkdir $OUTDIR/$EXTENSION";system $cmd;}
+  #collage
+  $OUT="$OUTDIR/$EXTENSION\_collage.$EXTOUT";
+  if (-e "$OUT" && !$FORCE)
+      {print BOLD GREEN "$OUT exists , skipping ....\n";print RESET;}
+    else
+      {
+      $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
+      $cmd="$GMIC -i $IN -$OP -o $OUT";
+      system $cmd;
+      }
+  #all effects
+  for ($i = 1 ;$i <= $PRESETS;$i++)
+    {
+    $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,$i,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
     $OUT="$OUTDIR/$EXTENSION/$IMANAME\_$EXTENSION\_$i.$EXTOUT";
     if (-e "$OUT" && !$FORCE)
       {

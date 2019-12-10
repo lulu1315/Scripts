@@ -94,6 +94,7 @@ $VERBOSE=0;
 $FORCE=0;
 #network
 $NUMITERATIONS="2000,1000";
+$RECOLORITER=50;
 $STYLEWEIGHT=2000;
 $CONTENTWEIGHT=1;
 $CONTENTBLEND="5e-1";
@@ -103,12 +104,14 @@ $TVWEIGHT="1e-4";
 $POOLING="avg";
 $OPTIMIZER="adam";
 $LEARNING_RATE="5e-1";
+$BETA1="9e-1";
+$EPSILON="1e-8";
 $NORMALIZE_GRADIENT=1;
 $SEED=-1;
 $INIT="image,prevWarped";
 #gpu id
 $GPU=0;
-$PARAMS="_lr$LEARNING_RATE\_$POOLING\_$OPTIMIZER\_ng$NORMALIZE_GRADIENT";
+$PARAMS="_ssc$STYLESCALE\_$POOLING\_$OPTIMIZER\_ng$NORMALIZE_GRADIENT";
 $CSV=0;
 $CSVFILE="./SHOTLIST.csv";
 $LOG1=" > /var/tmp/artistic_$GPU.log";
@@ -204,6 +207,8 @@ print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF "#network\n";
 print AUTOCONF confstr(NUMITERATIONS);
+print AUTOCONF confstr(RECOLORITER);
+print AUTOCONF "#recolor content every ..\n";
 print AUTOCONF confstr(STYLEWEIGHT);
 print AUTOCONF confstr(CONTENTWEIGHT);
 print AUTOCONF confstr(CONTENTBLEND);
@@ -212,13 +217,15 @@ print AUTOCONF confstr(TVWEIGHT);
 print AUTOCONF confstr(POOLING);
 print AUTOCONF confstr(OPTIMIZER);
 print AUTOCONF confstr(LEARNING_RATE);
+print AUTOCONF confstr(BETA1);
+print AUTOCONF confstr(EPSILON);
 print AUTOCONF confstr(NORMALIZE_GRADIENT);
 print AUTOCONF confstr(SEED);
 print AUTOCONF confstr(INIT);
 print AUTOCONF confstr(CSV);
 print AUTOCONF confstr(GPU);
 print AUTOCONF "\@tmp=split(/,/,\$NUMITERATIONS)\;\n";
-print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_iter\@tmp[0]\"\;\n";
+print AUTOCONF "\$PARAMS=\"_ssc\$STYLESCALE\\_iter\@tmp[0]\"\;\n";
 #print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_\$POOLING\\_\$OPTIMIZER\\_ng\$NORMALIZE_GRADIENT\"\;\n";
 print AUTOCONF "1\n";
 }
@@ -426,15 +433,27 @@ $CCONTENT=@tmp[0];
 if ($IN_USE_SHOT)
     {
     $CONTENTPATTERN="$CONTENTDIR/$SHOT/$CONTENT.%04d.$EXT";
+    $EDGESPATTERN="$EDGEDIR/$SHOT/$EDGES.%04d.$EXT";
+    $FLOWPATTERN="$FLOWDIR/$SHOT/dual/backward_[\%04d]_{\%04d}.flo";
+    $FLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
+    $FORWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/forward_[\%04d]_{\%04d}.flo";
+    $BACKWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/backward\_[\%04d]_{\%04d}.flo";
+    $FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
+    $BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
+    
     }
 else
     {
     $CONTENTPATTERN="$CONTENTDIR/$CONTENT.%04d.$EXT";
+    $EDGESPATTERN="$EDGEDIR/$EDGES.%04d.$EXT";
+    $FLOWPATTERN="$FLOWDIR/dual/backward_[\%04d]_{\%04d}.flo";
+    $FLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
+    $FORWARDFLOWPATTERN="$FLOWDIR/dual/forward_[\%04d]_{\%04d}.flo";
+    $BACKWARDFLOWPATTERN="$FLOWDIR/dual/backward\_[\%04d]_{\%04d}.flo";
+    $FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
+    $BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     }
 
-$EDGESPATTERN="$EDGEDIR/$SHOT/$EDGES.%04d.$EXT";
-$FLOWPATTERN="$FLOWDIR/$SHOT/dual/backward_[\%04d]_{\%04d}.flo";
-$FLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
 if ($DOGRADIENT)
     {
     $GRADIENTPATTERN="$GRADIENTDIR/$SHOT/$GRADIENT.{\%04d}.flo";
@@ -443,11 +462,6 @@ if ($DOTANGENT)
     {
     $TANGENTPATTERN="$TANGENTDIR/$SHOT/$TANGENT.{\%04d}.flo";
     }
-
-$FORWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/forward_[\%04d]_{\%04d}.flo";
-$BACKWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/backward\_[\%04d]_{\%04d}.flo";
-$FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
-$BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
 
 $OOUTDIR="$OUTDIR/$SHOT/";
 $OUT="$CCONTENT\_$SSTYLE$PARAMS.png";
@@ -465,7 +479,10 @@ else
     $touchcmd="touch $OOUTDIR/$OUT";
     system $touchcmd;
 
-    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH";
+    #for ($i = $FSTART ;$i < $FEND ;$i++)
+    #{
+    #$cmd="$TH $LIGHTLUA -pid $$ -start_number $i -num_images 1 -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER";
+    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER";
     if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
     if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
     if ($DOINDEX) {$cmd=$cmd." -doindex $DOINDEX -indexcolor $INDEXCOLOR -indexmethod $INDEXMETHOD -dithering $DITHERING -indexroll $INDEXROLL";}
@@ -479,6 +496,7 @@ else
     if ($DOTANGENT) {$cmd=$cmd." -dotangent -tangent_pattern $TANGENTPATTERN -tangentbooster $TANGENTBOOSTER";}
     verbose($cmd);
     system $cmd;
+    #}
     }
 }#neural sub
 
