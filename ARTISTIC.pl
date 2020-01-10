@@ -39,6 +39,7 @@ $CONTENTDIR="$CWD/originales";
 $CONTENT="ima";
 $FLOWDIR="$CWD/opticalflow";
 #$FLOW="backward";
+$USE_REFILL=0;
 $FLOWWEIGHT="reliable";
 $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
@@ -52,21 +53,28 @@ $INDEXMETHOD=1;
 $DITHERING=1;
 $INDEXROLL=5;
 $DOEDGES=0;
-$EDGEDIR="$CWD/edges";
-$EDGES="edges";
+$EDGEDIR="$CWD/coherent";
+$EDGES="coherent";
 $EDGEDILATE=0;
 $EDGESMOOTH=1;
 $EDGESOPACITY=1;
 $EDGESMODE="subtract";
 $EDGESINVERT=0;
 $DOGRADIENT=0;
-$GRADIENTDIR="$CWD/gradient";
+$GRADIENTDIR="$CWD/coherent";
 $GRADIENT="gradient";
 $GRADIENTBOOSTER=1;
 $DOTANGENT=0;
-$TANGENTDIR="$CWD/gradient";
+$TANGENTDIR="$CWD/coherent";
 $TANGENT="tangent";
 $TANGENTBOOSTER=1;
+$DOCUSTOM=0;
+$CUSTOMDIR="$CWD/customflow";
+$CUSTOM="custom";
+$CUSTOMBOOSTER=1;
+$MASKOPTICALFLOW=0;
+$MASKDIR="$CWD/masks";
+$MASK="mask";
 $OUTDIR="$CWD/artistic";
 $OUTPUT_SIZE=0;
 #
@@ -78,6 +86,7 @@ $EXPANDX=$EXPAND;
 $EXPANDY=$EXPAND;
 #preprocess
 $DOLOCALCONTRAST=1;
+$ANISOTROPIC=0;
 $EQUALIZE=0;
 $EQUALIZEMIN="20%";
 $EQUALIZEMAX="80%";
@@ -149,6 +158,7 @@ print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(CONTENTDIR);
 print AUTOCONF confstr(CONTENT);
 print AUTOCONF confstr(FLOWDIR);
+print AUTOCONF confstr(USE_REFILL);
 print AUTOCONF confstr(FLOWWEIGHT);
 print AUTOCONF confstr(STYLEDIR);
 print AUTOCONF confstr(STYLE);
@@ -180,6 +190,13 @@ print AUTOCONF confstr(DOTANGENT);
 print AUTOCONF confstr(TANGENTDIR);
 print AUTOCONF confstr(TANGENT);
 print AUTOCONF confstr(TANGENTBOOSTER);
+print AUTOCONF confstr(DOCUSTOM);
+print AUTOCONF confstr(CUSTOMDIR);
+print AUTOCONF confstr(CUSTOM);
+print AUTOCONF confstr(CUSTOMBOOSTER);
+print AUTOCONF confstr(MASKOPTICALFLOW);
+print AUTOCONF confstr(MASKDIR);
+print AUTOCONF confstr(MASK);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUTPUT_SIZE);
 print AUTOCONF confstr(SHAVE);
@@ -191,6 +208,7 @@ print AUTOCONF "\$EXPANDY=\$EXPAND\;\n";
 print AUTOCONF "#preprocess\n";
 print AUTOCONF confstr(CONTENTBLUR);
 print AUTOCONF confstr(DOLOCALCONTRAST);
+print AUTOCONF confstr(ANISOTROPIC);
 print AUTOCONF confstr(EQUALIZE);
 print AUTOCONF confstr(EQUALIZEMIN);
 print AUTOCONF confstr(EQUALIZEMAX);
@@ -274,6 +292,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $ZEROPAD=@ARGV[$arg+1];
     print "zeropad : $ZEROPAD\n";
+    }
+  if (@ARGV[$arg] eq "-shot") 
+    {
+    $SHOT=@ARGV[$arg+1];
+    print "shot : $SHOT\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -430,14 +453,17 @@ $SSTYLE=~ s/\.//;
 @tmp=split(/\./,$CONTENT);
 $CCONTENT=@tmp[0];
 
+if ($USE_REFILL) {$FLOWFLAG="refill";}
+else {$FLOWFLAG="dual";}
+
 if ($IN_USE_SHOT)
     {
     $CONTENTPATTERN="$CONTENTDIR/$SHOT/$CONTENT.%04d.$EXT";
     $EDGESPATTERN="$EDGEDIR/$SHOT/$EDGES.%04d.$EXT";
-    $FLOWPATTERN="$FLOWDIR/$SHOT/dual/backward_[\%04d]_{\%04d}.flo";
+    $FLOWPATTERN="$FLOWDIR/$SHOT/$FLOWFLAG/backward_[\%04d]_{\%04d}.flo";
     $FLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
-    $FORWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/forward_[\%04d]_{\%04d}.flo";
-    $BACKWARDFLOWPATTERN="$FLOWDIR/$SHOT/dual/backward\_[\%04d]_{\%04d}.flo";
+    $FORWARDFLOWPATTERN="$FLOWDIR/$SHOT/$FLOWFLAG/forward_[\%04d]_{\%04d}.flo";
+    $BACKWARDFLOWPATTERN="$FLOWDIR/$SHOT/$FLOWFLAG/backward\_[\%04d]_{\%04d}.flo";
     $FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     $BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     
@@ -446,10 +472,10 @@ else
     {
     $CONTENTPATTERN="$CONTENTDIR/$CONTENT.%04d.$EXT";
     $EDGESPATTERN="$EDGEDIR/$EDGES.%04d.$EXT";
-    $FLOWPATTERN="$FLOWDIR/dual/backward_[\%04d]_{\%04d}.flo";
+    $FLOWPATTERN="$FLOWDIR/$FLOWFLAG/backward_[\%04d]_{\%04d}.flo";
     $FLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
-    $FORWARDFLOWPATTERN="$FLOWDIR/dual/forward_[\%04d]_{\%04d}.flo";
-    $BACKWARDFLOWPATTERN="$FLOWDIR/dual/backward\_[\%04d]_{\%04d}.flo";
+    $FORWARDFLOWPATTERN="$FLOWDIR/$FLOWFLAG/forward_[\%04d]_{\%04d}.flo";
+    $BACKWARDFLOWPATTERN="$FLOWDIR/$FLOWFLAG/backward\_[\%04d]_{\%04d}.flo";
     $FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     $BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     }
@@ -461,6 +487,14 @@ if ($DOGRADIENT)
 if ($DOTANGENT)
     {
     $TANGENTPATTERN="$TANGENTDIR/$SHOT/$TANGENT.{\%04d}.flo";
+    }
+if ($DOCUSTOM)
+    {
+    $CUSTOMPATTERN="$CUSTOMDIR/$SHOT/$CUSTOM.{\%04d}.flo";
+    }
+if ($MASKOPTICALFLOW)
+    {
+    $MASKPATTERN="$MASKDIR/$SHOT/$MASK.%04d.$EXT";
     }
 
 $OOUTDIR="$OUTDIR/$SHOT/";
@@ -482,7 +516,7 @@ else
     #for ($i = $FSTART ;$i < $FEND ;$i++)
     #{
     #$cmd="$TH $LIGHTLUA -pid $$ -start_number $i -num_images 1 -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER";
-    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER";
+    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER -anisotropic $ANISOTROPIC";
     if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
     if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
     if ($DOINDEX) {$cmd=$cmd." -doindex $DOINDEX -indexcolor $INDEXCOLOR -indexmethod $INDEXMETHOD -dithering $DITHERING -indexroll $INDEXROLL";}
@@ -494,6 +528,8 @@ else
         }
     if ($DOGRADIENT) {$cmd=$cmd." -dogradient -gradient_pattern $GRADIENTPATTERN -gradientbooster $GRADIENTBOOSTER";}
     if ($DOTANGENT) {$cmd=$cmd." -dotangent -tangent_pattern $TANGENTPATTERN -tangentbooster $TANGENTBOOSTER";}
+    if ($DOCUSTOM) {$cmd=$cmd." -docustom -custom_pattern $CUSTOMPATTERN -custombooster $CUSTOMBOOSTER";}
+    if ($MASKOPTICALFLOW) {$cmd=$cmd." -mask -mask_pattern $MASKPATTERN";}
     verbose($cmd);
     system $cmd;
     #}

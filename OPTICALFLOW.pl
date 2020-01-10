@@ -64,6 +64,8 @@ $NORMALISATION=20;
 $DOEXR=1;
 $DOSEQUENTIAL=1;
 $DOREFILL=0;
+$REFILLPREBLUR=3;
+$REFILLGRADIENTTRESHOLD=1;
 $REFILLMETHOD=1;
 #0=low-connectivity average
 #1=high-connectivity average
@@ -181,6 +183,8 @@ print AUTOCONF confstr(NORMALISATION);
 print AUTOCONF confstr(DOEXR);
 print AUTOCONF confstr(DOSEQUENTIAL);
 print AUTOCONF confstr(DOREFILL);
+print AUTOCONF confstr(REFILLPREBLUR);
+print AUTOCONF confstr(REFILLGRADIENTTRESHOLD);
 print AUTOCONF confstr(REFILLMETHOD);
 print AUTOCONF "#0=low-connectivity average\n";
 print AUTOCONF "#1=high-connectivity average\n";
@@ -517,6 +521,8 @@ if (-e "$OOUTDIR/dual") {print "$OOUTDIR/dual already exists\n";}
     else {$cmd="mkdir $OOUTDIR/dual";system $cmd;}
 if (-e "$OOUTDIR/sequential") {print "$OOUTDIR/sequential already exists\n";}
     else {$cmd="mkdir $OOUTDIR/sequential";system $cmd;}
+if (-e "$OOUTDIR/refill") {print "$OOUTDIR/refill already exists\n";}
+    else {$cmd="mkdir $OOUTDIR/refill";system $cmd;}
     
 for ($i = $FSTART ;$i <= $FEND ;$i++)
 {
@@ -555,8 +561,6 @@ $COLORFORWARD="$OOUTDIR/dual/forward_$ii\_$jj.png";
 $COLORBACKWARD="$OOUTDIR/dual/backward_$jj\_$ii.png";
 $EXRFORWARD="$OOUTDIR/dual/forward_$ii\_$jj.exr";
 $EXRBACKWARD="$OOUTDIR/dual/backward_$jj\_$ii.exr";
-$EXRFORWARDREFILL="$OOUTDIR/dual/forward_refill_$ii\_$jj.exr";
-$EXRBACKWARDREFILL="$OOUTDIR/dual/backward_refill_$jj\_$ii.exr";
 
 #sequential
 $NEXT="$OOUTDIR/sequential/next.$ii.flo";
@@ -565,8 +569,6 @@ $COLORNEXT="$OOUTDIR/sequential/next_flowcolor.$ii.png";
 $COLORPREV="$OOUTDIR/sequential/prev_flowcolor.$jj.png";
 $EXRNEXT="$OOUTDIR/sequential/next.$ii.exr";
 $EXRPREV="$OOUTDIR/sequential/prev.$jj.exr";
-$EXRNEXTREFILL="$OOUTDIR/sequential/next_refill.$ii.exr";
-$EXRPREVREFILL="$OOUTDIR/sequential/prev_refill.$jj.exr";
 
 #preprocess
 $WORKDIR="$OOUTDIR/w$ii";
@@ -970,15 +972,36 @@ else
       #./consistencyChecker/consistencyChecker "${folderName}/backward_${j}_${i}.flo" "${folderName}/forward_${i}_${j}.flo" "${folderName}/reliable_${j}_${i}.pgm"
       #./consistencyChecker/consistencyChecker "${folderName}/forward_${i}_${j}.flo" "${folderName}/backward_${j}_${i}.flo" "${folderName}/reliable_${i}_${j}.pgm"
       }
+    }
     if ($DOREFILL)
         {
-        $cmd="$GMIC $EXRFORWARD $OOUTDIR/dual/reliable_$ii\_$jj.pgm -le[1] 250 --inpaint[0] [1],0,$REFILLMETHOD -o[2] $EXRFORWARDREFILL $LOG2";
+        #refill
+        $EXRBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.exr";
+        $FLOBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.flo";
+        $REFILLMASK="$OOUTDIR/refill/refillmask.$ii.png";
+        
+        #all in one
+        #$cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD $EXRBACKWARD -inpaint_flow[1] [0] -o[1] $EXRBACKWARDREFILL $LOG2";
+        #print("--------> refill dual prev $jj->$ii\n");
+        
+        #compute mask
+        $cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD mul 255 -o $REFILLMASK $LOG2";
         verbose($cmd);
-        print("--------> refill dual next $ii->$jj\n");
+        print("--------> compute gradient mask $ii\n");
         system $cmd;
-        $cmd="$GMIC $EXRBACKWARD $OOUTDIR/dual/reliable_$jj\_$ii.pgm -le[1] 250 --inpaint[0] [1],0,$REFILLMETHOD -o[2] $EXRBACKWARDREFILL $LOG2";
+        #inpaint flow
+        #$cmd="$GMIC $REFILLMASK div 255 $EXRBACKWARD -inpaint_flow[1] [0] -o[1] $EXRBACKWARDREFILL $LOG2";
+        #inpaint pde
+        #diffusion_type={ 0=isotropic | 1=delaunay-guided | 2=edge-guided }
+        $DIFFUSIONTYPE=0;
+        $cmd="$GMIC $REFILLMASK div 255 $EXRBACKWARD -inpaint_pde[1] [0],75%,$DIFFUSIONTYPE,20 -o[1] $EXRBACKWARDREFILL $LOG2";
         verbose($cmd);
-        print("--------> refill dual prev $jj->$ii\n");
+        print("--------> refill backward flow $jj->$ii\n");
+        system $cmd;
+        #convert to .flo
+        $cmd="$EXR2FLO $EXRBACKWARDREFILL $FLOBACKWARDREFILL";
+        verbose($cmd);
+        print("--------> convert to flo\n");
         system $cmd;
         }
     if ($CLEAN)
@@ -992,7 +1015,6 @@ else
     ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
     print BOLD YELLOW "Writing next.$ii.exr opticalflow all frames took $hlat:$mlat:$slat \n";
     print RESET;
-    }
 }
     
 if ($DOHOUDINI)
