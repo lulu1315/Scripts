@@ -51,9 +51,27 @@ $OUTPUTSIZE=1280;
 $DOCOLORIZATION=1;
 $DEOLDIFYMODEL=0;
 $DEOLDIFYRENDERFACTOR=35;
+#local contrast
 $DOLOCALCONTRAST=0;
+#equalize
+$DOEQUALIZE=1;
+$EQUALIZELEVELS=512;
+$EQUALIZEMIN="10%";
+$EQUALIZEMAX="90%";
+#basic image modifications
+$DOCOLORCORRECT=1;
+$BRIGHTNESS=-20;
+$CONTRAST=0;
+$GAMMA=0;
+$SATURATION=0;
+#linear color transfer
 $DOCOLORTRANSFERT=1;
+#isotropic filtering
 $DOISOTROPIC=2;
+#sharp abstract
+$DOSHARPABSTRACT=3;
+#add noise
+$DONOISE=1;
 #
 $VERBOSE=1;
 #
@@ -90,10 +108,25 @@ if ($DOCOLORIZATION) {
     system $cmd;
     $I++;
 }
-#deoldify
+if ($DOEQUALIZE) {
+    $J=$I+1;
+    $cmd="$GMIC $WORKDIR/$I.png -equalize $EQUALIZELEVELS,$EQUALIZEMIN,$EQUALIZEMAX -o $WORKDIR/$J.png";
+    verbose($cmd);
+    system $cmd;
+    $I++;
+}
+#local contrast
 if ($DOLOCALCONTRAST) {
     $J=$I+1;
     $cmd="$GMIC $WORKDIR/$I.png -fx_LCE[0] 80,0.5,1,1,0,0 -o $WORKDIR/$J.png";
+    verbose($cmd);
+    system $cmd;
+    $I++;
+}
+#local contrast
+if ($DOCOLORCORRECT) {
+    $J=$I+1;
+    $cmd="$GMIC $WORKDIR/$I.png -fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION -o $WORKDIR/$J.png";
     verbose($cmd);
     system $cmd;
     $I++;
@@ -108,6 +141,20 @@ if ($DOCOLORTRANSFERT) {
 if ($DOISOTROPIC) {
     $J=$I+1;
     $cmd="$GMIC $WORKDIR/$I.png -fx_smooth_anisotropic 60,0.7,0.3,0.6,1.1,0.8,30,2,0,1,$DOISOTROPIC,0,0,50,50 -o $WORKDIR/$J.png";
+    verbose($cmd);
+    system $cmd;
+    $I++;
+}
+if ($DOSHARPABSTRACT) {
+    $J=$I+1;
+    $cmd="$GMIC $WORKDIR/$I.png -fx_sharp_abstract $DOSHARPABSTRACT,10,0.5,0,0 -o $WORKDIR/$J.png";
+    verbose($cmd);
+    system $cmd;
+    $I++;
+}
+if ($DONOISE) {
+    $J=$I+1;
+    $cmd="$GMIC $WORKDIR/$I.png -fx_simulate_grain 0,1,$DONOISE,100,0,0,0,0,0,0,0,0 -o $WORKDIR/$J.png";
     verbose($cmd);
     system $cmd;
     $I++;
