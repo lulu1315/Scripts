@@ -382,7 +382,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 $userName =  $ENV{'USER'}; 
 if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
   {
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}

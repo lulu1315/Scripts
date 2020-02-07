@@ -62,12 +62,12 @@ $INDEXCOLOR=64;
 $INDEXMETHOD=1;
 $DITHERING=1;
 $INDEXROLL=5;
-
 $GPU=0;
 $CLEAN=1;
 $CSV=0;
 $LOG1=" > /var/tmp/colortransfert.log";
 $LOG2=" 2> /var/tmp/colortransfert.log";
+$CSVFILE="./SHOTLIST.csv";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -116,7 +116,8 @@ print AUTOCONF "#1 : color_transfer\n";
 print AUTOCONF "#2 : hmap\n";
 print AUTOCONF "#3 : Neural-tools\n";
 print AUTOCONF "#4 : ideepcolor\n";
-print AUTOCONF "#5 : indexing\n";
+#print AUTOCONF "#5 : indexing\n";
+print AUTOCONF "#5 : gmic pca\n";
 print AUTOCONF confstr(LCTMODE);
 print AUTOCONF "#preprocess\n";
 print AUTOCONF confstr(ROLLING);
@@ -221,7 +222,7 @@ if (($userName eq "dev") || ($userName eq "render"))	#
 if ($userName eq "dev18")	#
   {
   if ($HOSTNAME =~ "hp") {$GPU=-1}
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
   $HMAP="/shared/foss-18/hmap/hmap.py";
   $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
@@ -286,6 +287,27 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     if ($FSTART eq "auto") {$FSTART = $min;}
     if ($FEND   eq "auto") {$FEND   = $max;}
     print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
     print ("final seq : $FSTART $FEND\n");
     }
     
@@ -541,6 +563,62 @@ if (($METHOD == 4) || ($METHOD == 0))
         }
     }
 
+    if (($METHOD == 5) || ($METHOD == 0))
+    {
+    $PARAMS="_m5";
+    $WORKDIR="$OOUTDIR/w$ii$PARAMS";
+    if ($IN_USE_SHOT) {$INCONTENT="$CONTENTDIR/$SHOT/$CONTENT.$ii.$EXT";} else {$INCONTENT="$CONTENTDIR/$CONTENT.$ii.$EXT";}
+    $INSTYLE="$STYLEDIR/$STYLE";
+    $OOUT="$OOUTDIR/$CCONTENT\_$SSTYLE$PARAMS.$ii.$EXT";
+    if (-e $OOUT && !$FORCE)
+        {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
+    else
+        {
+        $touchcmd="touch $OOUT";
+        system $touchcmd;
+        $MONTAGE=0;
+        print BOLD BLUE ("\nframe : $ii\n");print RESET;
+        if ($STYLESIZE)
+            {
+            if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
+            $cmd="$GMIC -i $INSTYLE -resize2dx $STYLESIZE,5 -c 0,255 -o $WORKDIR/style.png $LOG2";
+            verbose($cmd);
+            print("--------> resize style [size:$INSTYLE]\n");
+            system $cmd;
+            $INSTYLE="$WORKDIR/style.png";
+            }
+        if ($SIZE)
+            {$GMIC1="-resize2dx $SIZE,5 -c 0,255";} else {$GMIC1="";}
+        if ($DOLOCALCONTRAST)
+            {$GMIC2="-fx_LCE[0] 80,0.5,1,1,0,0";} else {$GMIC2="";}
+        if ($BRIGHTNESS || $CONTRAST || $GAMMA || $SATURATION) 
+            {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} 
+            else {$GMIC3="";}
+        if ($ROLLING) 
+            {$GMIC4="-fx_sharp_abstract $ROLLING,10,0.5,0,0";} else {$GMIC4="";}
+        if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
+        $cmd="$GMIC -i $INCONTENT $GMIC1 $GMIC2 $GMIC3 $GMIC4 -o $WORKDIR/content.$EXT $LOG2";
+        verbose($cmd);
+        print("--------> preprocess content [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
+        system $cmd;
+        $INCONTENT="$WORKDIR/content.$EXT";
+        #
+        $cmd="$GMIC -i $INCONTENT -i $INSTYLE +transfer_pca[0] [1],ycbcr_y transfer_pca[-1] [1],ycbcr_cbcr -o[2] $OOUT 2> /var/tmp/colortransfert.log";
+        verbose($cmd);
+        print("--------> gmic pca\n");
+        #-----------------------------#
+        ($s1,$m1,$h1)=localtime(time);
+        #-----------------------------#
+        system $cmd;
+        #-----------------------------#
+        ($s2,$m2,$h2)=localtime(time);
+        ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
+        print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat \n";print RESET;
+        #-----------------------------#
+        clean();
+        }
+    }
+    
     if ($MONTAGE && ($METHOD == 0))
         {
         $M1="$OOUTDIR/$CCONTENT\_$SSTYLE\_m1.$ii.$EXT";

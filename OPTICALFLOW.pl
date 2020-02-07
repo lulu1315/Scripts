@@ -124,6 +124,7 @@ $FPT=5;
 #log
 $LOG1=" > /var/tmp/opticalflow.log";
 $LOG2=" 2> /var/tmp/opticalflow.log";
+$CSVFILE="./SHOTLIST.csv";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -160,6 +161,7 @@ print AUTOCONF "#5 -> PWC-Net : Pyramid, Warping, and Cost Volume\n";
 print AUTOCONF "#6 -> Unflow  : Unsupervised Learning with a Bidirectional Census Loss\n";
 print AUTOCONF "#7 -> Spynet  : Spatial Pyramid Network\n";
 print AUTOCONF "#8 -> Simpleflow  : Sublinear Optical Flow (opencv)\n";
+print AUTOCONF "#9 -> humanflow \n";
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
 #print AUTOCONF confstr(FIRSTFRAME);
@@ -431,13 +433,14 @@ if ($userName eq "dev18" || $userName eq "render")	#
   $UNFLOW="python3 /shared/foss-18/pytorch-unflow/run.py";
   $SPYNET="python3 /shared/foss-18/pytorch-spynet/run.py";
   $SIMPLEFLOW="/shared/foss-18/FlowCode/build/simpleflow_opencv run";
+  $HUMANFLOW="th /shared/foss-18/humanflow/humanflow.lua";
   #$FLO2EXR="/shared/Scripts/bin/flo2exr";
   #$EXR2FLO="/shared/Scripts/bin/exr2flo";
   $FLO2EXR="/shared/foss/FlowCode/build/flo2exr";
   $EXR2FLO="/shared/foss/FlowCode/build/exr2flo";
   $COLOR_FLOW="/shared/Scripts/bin/color_flow";
   $CONSISTENCYCHECK="/shared/foss-18/artistic-videos//consistencyChecker/consistencyChecker";
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $HSCRIPT = "/shared/apps/houdini/hfs15.5.673/bin/hscript";
   $ENV{PYTHONPATH} = "/shared/foss-18/flownet2/python:$ENV{'PYTHONPATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/flownet2/build/lib:$ENV{'LD_LIBRARY_PATH'}";
@@ -506,6 +509,30 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("seq boundary : $FIRSTFRAME $LASTFRAME\n");
     }
     
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
+    $FIRSTFRAME=$CSVFSTART;
+    $LASTFRAME=$CSVFEND;
+    print ("final seq : $FSTART $FEND\n");
+    print ("seq boundary : $FIRSTFRAME $LASTFRAME\n");
+    }
+    
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
@@ -555,13 +582,13 @@ else
     $FILE2="$INDIR/$IN.$jj.$EXT";
     }
 
+#dual
 $FORWARD="$OOUTDIR/dual/forward_$ii\_$jj.flo";
 $BACKWARD="$OOUTDIR/dual/backward_$jj\_$ii.flo";
 $COLORFORWARD="$OOUTDIR/dual/forward_$ii\_$jj.png";
 $COLORBACKWARD="$OOUTDIR/dual/backward_$jj\_$ii.png";
 $EXRFORWARD="$OOUTDIR/dual/forward_$ii\_$jj.exr";
 $EXRBACKWARD="$OOUTDIR/dual/backward_$jj\_$ii.exr";
-
 #sequential
 $NEXT="$OOUTDIR/sequential/next.$ii.flo";
 $PREV="$OOUTDIR/sequential/prev.$jj.flo";
@@ -594,6 +621,9 @@ else
     #touch
     $touchcmd="touch $FORWARD";
     system $touchcmd;
+    #
+    $framesleft=($FEND-$i);
+    print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
     #preprocess
     verbose("preprocessing frame $ii");
     if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
@@ -652,6 +682,10 @@ else
             if ($METHOD == 8)
                 {
                 $cmd="$SIMPLEFLOW  $WFILE1 $WFILE2 $WFORWARD";
+                }
+            if ($METHOD == 9)
+                {
+                $cmd="$HUMANFLOW  -img1 $WFILE1 -img2 $WFILE2 -output $WFORWARD";
                 }
             verbose($cmd);
             print("--------> opticalflow forward [$ii->$jj methode $METHOD]\n");
@@ -718,6 +752,10 @@ else
                 {
                 $cmd="$SIMPLEFLOW  $WFILE1 $WFILE2 $FORWARD";
                 }
+            if ($METHOD == 9)
+                {
+                $cmd="$HUMANFLOW  -img1 $WFILE1 -img2 $WFILE2 -output $FORWARD";
+                }
             verbose($cmd);
             print("--------> opticalflow forward [$ii->$jj methode $METHOD]\n");
             system $cmd;
@@ -732,7 +770,7 @@ else
       system $cmd;
       if ($DOSEQUENTIAL)
             {
-            $cmd="cp $EXRFORWARD $EXRNEXT";
+            $cmd="ln -s $EXRFORWARD $EXRNEXT";
             verbose($cmd);
             print(" [+sequential]\n");
             system $cmd;
@@ -754,7 +792,7 @@ else
       system $cmd;
       if ($DOSEQUENTIAL)
             {
-            $cmd="cp $COLORFORWARD $COLORNEXT";
+            $cmd="ln -s $COLORFORWARD $COLORNEXT";
             verbose($cmd);
             print(" [+sequential]\n");
             system $cmd;
@@ -807,6 +845,10 @@ else
             if ($METHOD == 8)
                 {
                 $cmd="$SIMPLEFLOW  $WFILE2 $WFILE1 $WBACKWARD";
+                }
+            if ($METHOD == 9)
+                {
+                $cmd="$HUMANFLOW  -img1 $WFILE2 -img2 $WFILE1 -output $WBACKWARD";
                 }
             verbose($cmd);
             print("--------> opticalflow backward [$jj->$ii methode $METHOD]\n");
@@ -874,6 +916,10 @@ else
                 {
                 $cmd="$SIMPLEFLOW  $WFILE2 $WFILE1 $BACKWARD";
                 }
+            if ($METHOD == 9)
+                {
+                $cmd="$HUMANFLOW  -img1 $WFILE2 -img2 $WFILE1 -output $BACKWARD";
+                }
             verbose($cmd);
             print("--------> opticalflow backward [$jj->$ii methode $METHOD]\n");
             system $cmd;
@@ -889,7 +935,7 @@ else
       system $cmd;
       if ($DOSEQUENTIAL)
             {
-            $cmd="cp $EXRBACKWARD $EXRPREV";
+            $cmd="ln -s $EXRBACKWARD $EXRPREV";
             verbose($cmd);
             print(" [+sequential]\n");
             system $cmd;
@@ -911,7 +957,7 @@ else
       system $cmd;
       if ($DOSEQUENTIAL)
             {
-            $cmd="cp $COLORBACKWARD $COLORPREV";
+            $cmd="ln -s $COLORBACKWARD $COLORPREV";
             verbose($cmd);
             print(" [+sequential]\n");
             system $cmd;
@@ -972,28 +1018,31 @@ else
       #./consistencyChecker/consistencyChecker "${folderName}/backward_${j}_${i}.flo" "${folderName}/forward_${i}_${j}.flo" "${folderName}/reliable_${j}_${i}.pgm"
       #./consistencyChecker/consistencyChecker "${folderName}/forward_${i}_${j}.flo" "${folderName}/backward_${j}_${i}.flo" "${folderName}/reliable_${i}_${j}.pgm"
       }
-    }
     if ($DOREFILL)
         {
-        #refill
-        $EXRBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.exr";
-        $FLOBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.flo";
-        $REFILLMASK="$OOUTDIR/refill/refillmask.$ii.png";
-        
         #all in one
         #$cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD $EXRBACKWARD -inpaint_flow[1] [0] -o[1] $EXRBACKWARDREFILL $LOG2";
         #print("--------> refill dual prev $jj->$ii\n");
         
-        #compute mask
-        $cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD mul 255 -o $REFILLMASK $LOG2";
-        verbose($cmd);
-        print("--------> compute gradient mask $ii\n");
-        system $cmd;
         #inpaint flow
         #$cmd="$GMIC $REFILLMASK div 255 $EXRBACKWARD -inpaint_flow[1] [0] -o[1] $EXRBACKWARDREFILL $LOG2";
+        
         #inpaint pde
         #diffusion_type={ 0=isotropic | 1=delaunay-guided | 2=edge-guided }
         $DIFFUSIONTYPE=0;
+        
+        $REFILLMASK="$OOUTDIR/refill/refillmask.$ii.png";
+        #compute mask
+        $cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD mul 255 -resize2dx $FINALRESX,5 -c 0,255 -o $REFILLMASK $LOG2";
+        verbose($cmd);
+        print("--------> compute gradient mask $ii\n");
+        system $cmd;
+        
+    #refill backward
+        $EXRBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.exr";
+        $FLOBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.flo";
+        $EXRPREVREFILL="$OOUTDIR/refill/prev.$jj.exr";
+        #refill
         $cmd="$GMIC $REFILLMASK div 255 $EXRBACKWARD -inpaint_pde[1] [0],75%,$DIFFUSIONTYPE,20 -o[1] $EXRBACKWARDREFILL $LOG2";
         verbose($cmd);
         print("--------> refill backward flow $jj->$ii\n");
@@ -1003,7 +1052,38 @@ else
         verbose($cmd);
         print("--------> convert to flo\n");
         system $cmd;
-        }
+        #sequential
+        if ($DOSEQUENTIAL)
+            {
+            $cmd="ln -s $EXRBACKWARDREFILL $EXRPREVREFILL";
+            verbose($cmd);
+            print(" [+backward sequential]\n");
+            system $cmd;
+            }
+    #refill forward
+        $EXRFORWARDREFILL="$OOUTDIR/refill/forward_$ii\_$jj.exr";
+        $FLOFORWARDREFILL="$OOUTDIR/refill/forward_$ii\_$jj.flo";
+        $EXRNEXTREFILL="$OOUTDIR/refill/next.$ii.exr";
+        #refill
+        $cmd="$GMIC $REFILLMASK div 255 $EXRFORWARD -inpaint_pde[1] [0],75%,$DIFFUSIONTYPE,20 -o[1] $EXRFORWARDREFILL $LOG2";
+        verbose($cmd);
+        print("--------> refill forward flow $ii->$jj\n");
+        system $cmd;
+        #convert to .flo
+        $cmd="$EXR2FLO $EXRFORWARDREFILL $FLOFORWARDREFILL";
+        verbose($cmd);
+        print("--------> convert to flo\n");
+        system $cmd;
+        #sequential
+        if ($DOSEQUENTIAL)
+            {
+            $cmd="ln -s $EXRFORWARDREFILL $EXRNEXTREFILL";
+            verbose($cmd);
+            print(" [+forward sequential]\n");
+            system $cmd;
+            }
+    }
+    
     if ($CLEAN)
         {
         $cleancmd="rm -r $WORKDIR";
@@ -1015,6 +1095,7 @@ else
     ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
     print BOLD YELLOW "Writing next.$ii.exr opticalflow all frames took $hlat:$mlat:$slat \n";
     print RESET;
+}
 }
     
 if ($DOHOUDINI)

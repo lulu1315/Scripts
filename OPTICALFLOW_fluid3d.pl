@@ -237,6 +237,8 @@ if (-e "$OOUTDIR/dual") {print "$OOUTDIR/dual already exists\n";}
     else {$cmd="mkdir $OOUTDIR/dual";system $cmd;}
 if (-e "$OOUTDIR/sequential") {print "$OOUTDIR/sequential already exists\n";}
     else {$cmd="mkdir $OOUTDIR/sequential";system $cmd;}
+if (-e "$OOUTDIR/refill") {print "$OOUTDIR/refill already exists\n";}
+    else {$cmd="mkdir $OOUTDIR/refill";system $cmd;}
     
 for ($i = $FSTART ;$i <= $FEND ;$i++)
 {
@@ -275,25 +277,40 @@ $BACKWARD="$OOUTDIR/dual/backward_$ii\_$kk.flo";
 $EXRFORWARD="$OOUTDIR/dual/forward_$ii\_$jj.exr";
 $EXRBACKWARD="$OOUTDIR/dual/backward_$ii\_$kk.exr";
 
+#refill
+$REFILLFORWARD="$OOUTDIR/refill/forward_$ii\_$jj.flo";
+$REFILLBACKWARD="$OOUTDIR/refill/backward_$ii\_$kk.flo";
+$REFILLEXRFORWARD="$OOUTDIR/refill/forward_$ii\_$jj.exr";
+$REFILLEXRBACKWARD="$OOUTDIR/refill/backward_$ii\_$kk.exr";
+
 #sequential
 $NEXT="$OOUTDIR/sequential/next.$ii.flo";
 $PREV="$OOUTDIR/sequential/prev.$ii.flo";
 $EXRNEXT="$OOUTDIR/sequential/next.$ii.exr";
 $EXRPREV="$OOUTDIR/sequential/prev.$ii.exr";
 
-#doshit
-#$cmd="$GMIC $BBACKWARD3D -o $EXRBACKWARD";
-$cmd="ln -s $BBACKWARD3D $EXRBACKWARD";
+#do dual backward
+#$cmd="ln -s $BBACKWARD3D $EXRBACKWARD";
+#verbose $cmd;
+#system $cmd;
+#refill backward
+$cmd="$GMIC $BBACKWARD3D -split c -append[0,1,2] c -oneminus[1] -inpaint_pde[0] [1],75%,0,20 -remove[1] -o $REFILLBACKWARD";
 verbose $cmd;
 system $cmd;
-#$cmd="$GMIC $FFOWARD3D -o $EXRFORWARD";
-$cmd="ln -s $FFOWARD3D $EXRFORWARD";
+
+#do dual forward
+#$cmd="ln -s $FFOWARD3D $EXRFORWARD";
+#verbose $cmd;
+#system $cmd;
+#refill forward
+$cmd="$GMIC $FFOWARD3D -split c -append[0,1,2] c -oneminus[1] -inpaint_pde[0] [1],75%,0,20 -remove[1] -o $REFILLFORWARD";
 verbose $cmd;
 system $cmd;
-$cmd="$EXR2FLO $EXRBACKWARD $BACKWARD";
+
+$cmd="$EXR2FLO $BBACKWARD3D $BACKWARD";
 verbose $cmd;
 system $cmd;
-$cmd="$EXR2FLO $EXRFORWARD $FORWARD";
+$cmd="$EXR2FLO $FFOWARD3D $FORWARD";
 verbose $cmd;
 system $cmd;
 }
@@ -304,21 +321,22 @@ for ($i = $FSTART ;$i <= $FEND ;$i++)
 ($s1,$m1,$h1)=localtime(time);
 #-----------------------------#
 if ($i == $LASTFRAME) {$j=$i;} else {$j=$i+$OFFSET;} #cheat pour renderfarm
-if ($i == $FIRSTFRAME) {$k=$i;} else {$k=$i-$OFFSET;} #cheat pour renderfarm
+#if ($i == $FIRSTFRAME) {$k=$i;} else {$k=$i-$OFFSET;} #cheat pour renderfarm
 
 if ($ZEROPAD == 4)
     {
-    $kk=sprintf("%04d",$k);
+    #$kk=sprintf("%04d",$k);
     $ii=sprintf("%04d",$i);
     $jj=sprintf("%04d",$j);
     }
 if ($ZEROPAD == 5)
     {
-    $kk=sprintf("%05d",$k);
+    #$kk=sprintf("%05d",$k);
     $ii=sprintf("%05d",$i);
     $jj=sprintf("%05d",$j);
     }
 $cmd="$CONSISTENCYCHECK $OOUTDIR/dual/backward_$jj\_$ii.flo $OOUTDIR/dual/forward_$ii\_$jj.flo $OOUTDIR/dual/reliable_$jj\_$ii.pgm $LOG1";
+#$cmd="$CONSISTENCYCHECK $BACKWARD $FORWARD $OOUTDIR/dual/reliable_$jj\_$ii.pgm $LOG1";
 verbose($cmd);
 print("--------> consistency backward [$jj->$ii]");
 system $cmd;

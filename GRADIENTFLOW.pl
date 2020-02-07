@@ -324,7 +324,7 @@ if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
   
 if ($userName eq "dev18")	#
   {
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $EXR2FLO="/shared/foss-18/FlowCode/build/exr2flo";
   $ETF="/shared/foss-18/Coherent-Line-Drawing/build/ETF-cli";
   }

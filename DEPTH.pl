@@ -32,49 +32,112 @@ sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
 }
 
+sub isnum ($) {
+#returns 0 if string 1 if number
+#http://www.perlmonks.org/?node=How%20to%20check%20if%20a%20scalar%20value%20is%20numeric%20or%20string%3F
+    return 0 if $_[0] eq '';
+    $_[0] ^ $_[0] ? 0 : 1
+}
+
+sub confstr {
+#format lines for autoconf
+  ($str) = @_;
+  if (isnum(${$str}))
+    {$line="\$$str=${$str}\;\n";}
+  else
+    {$line="\$$str=\"${$str}\"\;\n";}
+  return $line;
+  }
+  
 #defaults
 $FSTART="auto";
 $FEND="auto";
 $FSTEP=1;
-$INDIR="$CWD/coherent";
-$IN="ima";
-$OUTDIR="$CWD/showflow";
-$OUT="ima";
-$EXT="exr";
-$IN_USE_SHOT=0;
-$OUT_USE_SHOT=0;
 $SHOT="";
-$CSV=0;
-$BDIR="$CWD/originales";
-$BACKGROUND="black";
-$COLOR=255;
+$INDIR="$CWD/originales";
+$IN="ima";
+$IN_USE_SHOT=0;
+$OUTDIR="$CWD/$scriptname";
+$OUT="ima";
+$OUT_USE_SHOT=1;
+#clamp depth
+$CLAMPMIN=0;
+$CLAMPMAX=3000;
+$CLAMPGAMMA=.2;
+#
 $ZEROPAD=4;
-$SAMPLING=20;
-$VSCALE=1;
-$GAMMA=.9;
-$MOTIONTRESHOLD=.1; #do not draw if mag(motion) < motiontreshold
+$FORCE=0;
+$EXT="png";
+$VERBOSE=0;
+$CSV=0;
+$CSVFILE="./SHOTLIST.csv";
+$LOG1=">/var/tmp/$scriptname.log";
+$LOG2="2>/var/tmp/$scriptname.log";
+#JSON
+$CAPACITY=500;
+$SKIP="-force";
+$FPT=5;
+
+sub autoconf {
+open (AUTOCONF,">","$scriptname\_auto.conf");
+print AUTOCONF confstr(PROJECT);
+print AUTOCONF confstr(FSTART);
+print AUTOCONF confstr(FEND);
+print AUTOCONF confstr(FSTEP);
+print AUTOCONF confstr(SHOT);
+print AUTOCONF confstr(INDIR);
+print AUTOCONF confstr(IN);
+print AUTOCONF confstr(IN_USE_SHOT);
+print AUTOCONF confstr(OUTDIR);
+print AUTOCONF confstr(OUT);
+print AUTOCONF confstr(OUT_USE_SHOT);
+print AUTOCONF confstr(CLAMPMIN);
+print AUTOCONF confstr(CLAMPMAX);
+print AUTOCONF confstr(CLAMPGAMMA);
+print AUTOCONF confstr(ZEROPAD);
+print AUTOCONF confstr(FORCE);
+print AUTOCONF confstr(EXT);
+print AUTOCONF confstr(VERBOSE);
+print AUTOCONF "1\n";
+close AUTOCONF;
+}
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
+	print "-autoconf\n";
+	print "-conf file.conf\n";
 	print "-f startframe endframe\n";
 	print "-step step[1]\n";
 	print "-idir dirin\n";
 	print "-i imagein\n";
 	print "-odir dirout\n";
 	print "-o imageout\n";
-    print "-bdir background dir\n";
-	print "-b background [black,white,flow,image.png]\n";
-	print "-c color\n";
-	print "-s sampling\n";
-	print "-v vscale\n";
-	print "-g gamma\n";
 	print "-shot shotname\n";
-	print "-csv csv_file.csv\n";
+	print "-zeropad [4]\n";
+	print "-force [0]\n";
+	print "-verbose\n";
+    print "-csv csv_file.csv\n";
+    print "-json [submit to afanasy]\n";
+    print "-xml  [submit to royalrender]\n";
 	exit;
 }
 
 for ($arg=0;$arg <= $#ARGV;$arg++)
   {
+  if (@ARGV[$arg] eq "-autoconf") 
+    {
+    print "writing $scriptname\_auto.conf : mv $scriptname\_auto.conf $scriptname.conf\n";
+    autoconf();
+    exit;
+    }
+  if (@ARGV[$arg] eq "-conf") 
+    {
+    $CONF=@ARGV[$arg+1];
+    print "using conf file $CONF\n";
+    require "./$CONF";
+    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
+    else {$cmd="mkdir $OUTDIR";system $cmd;}
+    }
   if (@ARGV[$arg] eq "-f") 
     {
     $FSTART=@ARGV[$arg+1];
@@ -100,48 +163,11 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $OUTDIR=@ARGV[$arg+1];
     print "out dir : $OUTDIR\n";
-    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-    else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
   if (@ARGV[$arg] eq "-o") 
     {
     $OUT=@ARGV[$arg+1];
     print "image out : $OUT\n";
-    }
-  if (@ARGV[$arg] eq "-bdir") 
-    {
-    $BDIR=@ARGV[$arg+1];
-    print "background : $BDIR\n";
-    }
-  if (@ARGV[$arg] eq "-b") 
-    {
-    $BACKGROUND=@ARGV[$arg+1];
-    print "background : $BACKGROUND\n";
-    }
-  if (@ARGV[$arg] eq "-s") 
-    {
-    $SAMPLING=@ARGV[$arg+1];
-    print "sampling : $SAMPLING\n";
-    }
-  if (@ARGV[$arg] eq "-v") 
-    {
-    $VSCALE=@ARGV[$arg+1];
-    print "vscale : $VSCALE\n";
-    }
-  if (@ARGV[$arg] eq "-g") 
-    {
-    $GAMMA=@ARGV[$arg+1];
-    print "background gamma: $GAMMA\n";
-    }
-  if (@ARGV[$arg] eq "-t") 
-    {
-    $MOTIONTRESHOLD=@ARGV[$arg+1];
-    print "motion treshold: $MOTIONTRESHOLD\n";
-    }
-  if (@ARGV[$arg] eq "-c") 
-    {
-    $COLOR=@ARGV[$arg+1];
-    print "vector color : $COLOR\n";
     }
   if (@ARGV[$arg] eq "-shot") 
     {
@@ -152,12 +178,6 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $ZEROPAD=@ARGV[$arg+1];
     print "zeropad : $ZEROPAD\n";
-    }
-  if (@ARGV[$arg] eq "-csv") 
-    {
-    $CSVFILE=@ARGV[$arg+1];
-    print "csv file : $CSVFILE\n";
-    $CSV=1;
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -171,14 +191,29 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $LOG2="";
     print "verbose on\n";
     }
+  if (@ARGV[$arg] eq "-csv") 
+    {
+    $CSVFILE=@ARGV[$arg+1];
+    print "csv file : $CSVFILE\n";
+    $CSV=1;
+    }
 }
 
 $userName =  $ENV{'USER'}; 
-if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
+if ($userName eq "lulu")	#
   {
-  $SHOWFLOW="/shared/foss-18/FlowCode/build/showflow";
+  $GMIC="/usr/bin/gmic";
+  $DEPTH="python3 /shared/foss/3d-ken-burns/depthestim.py";
   }
   
+if ($userName eq "dev18" || $userName eq "render")	#
+  {
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
+  $DEPTH="python3 /shared/foss-18/3d-ken-burns/depthestim.py";
+  }
+  
+if ($VERBOSE) {$LOG1="";$LOG2="";}
+
 sub csv {
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
@@ -209,47 +244,91 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("final seq : $FSTART $FEND\n");
     }
     
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
 for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
 {
 #
 if ($ZEROPAD == 4) {$ii=sprintf("%04d",$i);}
 if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
 #
-    $IIN="$INDIR/$SHOT/$IN.$ii";
-    if ($BACKGROUND ne "black" && $BACKGROUND ne "white" && $BACKGROUND ne "flow") {
-        $BBACK="$BDIR/$SHOT/$BACKGROUND.$ii.png";
-        }
-    else {
-        $BBACK=$BACKGROUND;
-        }
+if ($IN_USE_SHOT)
+    {
+    $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
+    }
+else
+    {
+    $IIN="$INDIR/$IN.$ii.$EXT";
+    }
     
+if ($OUT_USE_SHOT)
+    {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT.$ii.png";
+    $OOUT="$OOUTDIR/$OUT";
+    $DEPTHCLAMPOOUT="$OOUTDIR/$OUT\_depthclamp.$ii.png";
+    $DISPARITYCLAMPOOUT="$OOUTDIR/$OUT\_disparityclamp.$ii.png";
+    $CHECKOOUT="$OOUTDIR/$OUT\_depth.$ii.exr";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    }
+else
+    {
+    $OOUTDIR="$OUTDIR";
+    $OOUT="$OUTDIR/$OUT";
+    $DEPTHCLAMPOOUT="$OOUTDIR/$OUT\_depthclamp.$ii.png";
+    $DISPARITYCLAMPOOUT="$OOUTDIR/$OUT\_disparityclamp.$ii.png";
+    $CHECKOOUT="$OOUTDIR/$OUT\_depth.$ii.exr";
+    if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
+    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    }
 
-if (-e $OOUT && !$FORCE)
-   {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
+if (-e $CHECKOOUT && !$FORCE)
+   {print BOLD RED "frame $CHECKOOUT exists ... skipping\n";print RESET;}
 else {
   #touch file
-  $touchcmd="touch $OOUT";
+  $touchcmd="touch $CHECKOOUT";
   if ($VERBOSE) {print "$touchcmd\n";}
-  #verbose($touchcmd);
   system $touchcmd;
-  $cmd="$SHOWFLOW $IIN $EXT $BBACK $COLOR $OOUT $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD";
+  $cmd="$DEPTH --in $IIN $OP --out $OOUT --f $ii $LOG2";
   verbose($cmd);
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
   system $cmd;
+  #clamp depth
+  #$clampcmd="$GMIC $OOUT\_depth.$ii.exr -split c -remove[1,2,3] -c $CLAMPMIN,$CLAMPMAX -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
+  $clampcmd="$GMIC $OOUT\_depth.$ii.exr -split c -remove[1,2,3] -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
+  verbose($clampcmd);
+  system $clampcmd;
+  #clamp depth
+  $clampcmd="$GMIC $OOUT\_disparity.$ii.exr -split c -remove[1,2,3] -n 0,255 -o $DISPARITYCLAMPOOUT $LOG2";
+  verbose($clampcmd);
+  system $clampcmd;
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-  #print BOLD YELLOW "gmic : frame $ii took $hlat:$mlat:$slat \n\n";print RESET;
   #-----------------------------#
   #afanasy parsing format
-  print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
-  #print "\n";
+  print BOLD YELLOW "Writing $CHECKOOUT took $hlat:$mlat:$slat\n";print RESET;
   }
 }
 }
@@ -276,7 +355,7 @@ else
   {
   csv();
   }
-
+  
 #-------------------------------------------------------#
 #---------gestion des timecodes ------------------------#
 #-------------------------------------------------------#

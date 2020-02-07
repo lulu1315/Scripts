@@ -273,7 +273,7 @@ if ($userName eq "dev" || $userName eq "render")	#
   
 if ($userName eq "dev18")	#
   {
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
   if ($HOSTNAME =~ "hp") {$TH="/shared/foss-18/torch/install/bin/th";}
   if ($HOSTNAME =~ "s005" || $HOSTNAME =~ "s006") {$TH="/shared/foss-18/torch_GTX1080/install/bin/th";}
@@ -361,7 +361,8 @@ else
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
-  print BOLD YELLOW ("\nprocessing frame $ii\n");print RESET;
+  $framesleft=($FEND-$i);
+  print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
   #
   $cmd="$TH $LUA -force_cudnn 1 -gpu $GPU -model_dir $MODELDIR -m $OP -noise_level $NOISE -i $IIN -o $OOUT $LOG2";
   verbose($cmd);
@@ -370,9 +371,9 @@ else
 
 if ($OUTSIZE || ($POSTOP ne ""))
   {
-  if ($OUTSIZE) {$GMIC1="-resize2dy $OUTSIZE,5";} else {$GMIC1="";}
+  if ($OUTSIZE) {$GMIC1="-resize2dx $OUTSIZE,5";} else {$GMIC1="";}
   if ($POSTOP ne "") {$GMIC2=$POSTOP;} else {$GMIC2="";}
-  $cmd="$GMIC -i $OOUT $GMIC1 $GMIC2 -o $OOUT $LOG2";
+  $cmd="$GMIC -i $OOUT $GMIC2 $GMIC1 -o $OOUT $LOG2";
   verbose($cmd);
   print("--------> resize/postop [size:$OUTSIZE postop:$POSTOP]\n");
   system $cmd;

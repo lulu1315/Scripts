@@ -33,19 +33,24 @@ $FSTART="auto";
 $FEND="auto";
 $CONTINUE=-1;
 $SHOT="";
+$CONTENT_USE_SHOT=0;
 $IN_USE_SHOT=0;
 $OUT_USE_SHOT=0;
 $CONTENTDIR="$CWD/originales";
 $CONTENT="ima";
 $FLOWDIR="$CWD/opticalflow";
 #$FLOW="backward";
-$USE_REFILL=0;
+$USE_REFILL=1;
 $FLOWWEIGHT="reliable";
 $STYLEDIR="$CWD/styles";
 $STYLE="style.jpg";
-$STYLESCALE="5e-1";
-$DOCOLORTRANSFERT=3;
-$LCTMODE="pca";
+$STYLESCALE=1;
+#2 pass
+$DO2PASS=1;
+$LOWDEF=512;
+$STYLE_LOWDEF="style.jpg";
+$STYLESCALELOWDEF=2;
+$DOCOLORTRANSFERT=1;
 #reindex result
 $DOINDEX=0;
 $INDEXCOLOR=64;
@@ -57,9 +62,9 @@ $EDGEDIR="$CWD/coherent";
 $EDGES="coherent";
 $EDGEDILATE=0;
 $EDGESMOOTH=1;
-$EDGESOPACITY=1;
+$EDGESOPACITY=.5;
 $EDGESMODE="subtract";
-$EDGESINVERT=0;
+$EDGESINVERT=1;
 $DOGRADIENT=0;
 $GRADIENTDIR="$CWD/coherent";
 $GRADIENT="gradient";
@@ -95,6 +100,7 @@ $CONTRAST=0;
 $GAMMA=0;
 $SATURATION=0;
 $NOISE=0;
+$HISTOGRAMTRANSFER=0;
 #
 $ZEROPAD=4;
 $FORCE=0;
@@ -102,8 +108,8 @@ $EXT="png";
 $VERBOSE=0;
 $FORCE=0;
 #network
-$NUMITERATIONS="2000,1000";
-$RECOLORITER=50;
+$NUMITERATIONS="600,300";
+$RECOLORITER=20;
 $STYLEWEIGHT=2000;
 $CONTENTWEIGHT=1;
 $CONTENTBLEND="5e-1";
@@ -118,6 +124,8 @@ $EPSILON="1e-8";
 $NORMALIZE_GRADIENT=1;
 $SEED=-1;
 $INIT="image,prevWarped";
+
+
 #gpu id
 $GPU=0;
 $PARAMS="_ssc$STYLESCALE\_$POOLING\_$OPTIMIZER\_ng$NORMALIZE_GRADIENT";
@@ -153,98 +161,116 @@ print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
 print AUTOCONF confstr(SHOT);
+print AUTOCONF confstr(CONTENT_USE_SHOT);
 print AUTOCONF confstr(IN_USE_SHOT);
 print AUTOCONF confstr(OUT_USE_SHOT);
 print AUTOCONF confstr(CONTENTDIR);
 print AUTOCONF confstr(CONTENT);
 print AUTOCONF confstr(FLOWDIR);
 print AUTOCONF confstr(USE_REFILL);
-print AUTOCONF confstr(FLOWWEIGHT);
+#print AUTOCONF confstr(FLOWWEIGHT);
 print AUTOCONF confstr(STYLEDIR);
 print AUTOCONF confstr(STYLE);
 print AUTOCONF confstr(STYLESCALE);
-print AUTOCONF confstr(DOCOLORTRANSFERT);
-print AUTOCONF "#0 : no transfert\n";
-print AUTOCONF "#3 : Neural-tools\n";
-print AUTOCONF "#    --index color\n";
-print AUTOCONF confstr(DOINDEX);
-print AUTOCONF confstr(INDEXCOLOR);
-print AUTOCONF confstr(INDEXMETHOD);
-print AUTOCONF confstr(DITHERING);
-print AUTOCONF confstr(INDEXROLL);
-print AUTOCONF "#edges\n";
+print AUTOCONF confstr(DO2PASS);
+print AUTOCONF confstr(LOWDEF);
+print AUTOCONF confstr(STYLE_LOWDEF);
+print AUTOCONF confstr(STYLESCALELOWDEF);
+
+print AUTOCONF "\n#edges\n";
 print AUTOCONF confstr(DOEDGES);
+print AUTOCONF confstr(EDGESOPACITY);
 print AUTOCONF confstr(EDGEDIR);
 print AUTOCONF confstr(EDGES);
 print AUTOCONF confstr(EDGEDILATE);
 print AUTOCONF confstr(EDGESMOOTH);
-print AUTOCONF confstr(EDGESOPACITY);
 print AUTOCONF confstr(EDGESMODE);
 print AUTOCONF confstr(EDGESINVERT);
-print AUTOCONF "#gradient/tangent\n";
+print AUTOCONF "\n#gradient flow\n";
 print AUTOCONF confstr(DOGRADIENT);
+print AUTOCONF confstr(GRADIENTBOOSTER);
 print AUTOCONF confstr(GRADIENTDIR);
 print AUTOCONF confstr(GRADIENT);
-print AUTOCONF confstr(GRADIENTBOOSTER);
+
+print AUTOCONF "\n#tangent flow\n";
 print AUTOCONF confstr(DOTANGENT);
+print AUTOCONF confstr(TANGENTBOOSTER);
 print AUTOCONF confstr(TANGENTDIR);
 print AUTOCONF confstr(TANGENT);
-print AUTOCONF confstr(TANGENTBOOSTER);
+
+print AUTOCONF "\n#custom flow\n";
 print AUTOCONF confstr(DOCUSTOM);
+print AUTOCONF confstr(CUSTOMBOOSTER);
 print AUTOCONF confstr(CUSTOMDIR);
 print AUTOCONF confstr(CUSTOM);
-print AUTOCONF confstr(CUSTOMBOOSTER);
+
+print AUTOCONF "\n#mask optical flow\n";
 print AUTOCONF confstr(MASKOPTICALFLOW);
 print AUTOCONF confstr(MASKDIR);
 print AUTOCONF confstr(MASK);
-print AUTOCONF confstr(OUTDIR);
-print AUTOCONF confstr(OUTPUT_SIZE);
+
+print AUTOCONF "\n#geometry\n";
 print AUTOCONF confstr(SHAVE);
 print AUTOCONF "\$SHAVEX=\$SHAVE\;\n";
 print AUTOCONF "\$SHAVEY=\$SHAVE\;\n";
 print AUTOCONF confstr(EXPAND);
 print AUTOCONF "\$EXPANDX=\$EXPAND\;\n";
 print AUTOCONF "\$EXPANDY=\$EXPAND\;\n";
-print AUTOCONF "#preprocess\n";
+print AUTOCONF "\n#preprocess\n";
 print AUTOCONF confstr(CONTENTBLUR);
 print AUTOCONF confstr(DOLOCALCONTRAST);
-print AUTOCONF confstr(ANISOTROPIC);
 print AUTOCONF confstr(EQUALIZE);
 print AUTOCONF confstr(EQUALIZEMIN);
 print AUTOCONF confstr(EQUALIZEMAX);
+print AUTOCONF confstr(DOCOLORTRANSFERT);
+#print AUTOCONF "#index color\n";
+#print AUTOCONF confstr(DOINDEX);
+#print AUTOCONF confstr(INDEXCOLOR);
+#print AUTOCONF confstr(INDEXMETHOD);
+#print AUTOCONF confstr(DITHERING);
+#print AUTOCONF confstr(INDEXROLL);
+print AUTOCONF confstr(HISTOGRAMTRANSFER);
+print AUTOCONF confstr(ANISOTROPIC);
 print AUTOCONF confstr(BRIGHTNESS);
 print AUTOCONF confstr(CONTRAST);
 print AUTOCONF confstr(GAMMA);
 print AUTOCONF confstr(SATURATION);
 print AUTOCONF confstr(NOISE);
-print AUTOCONF "#\n";
-print AUTOCONF confstr(ZEROPAD);
-print AUTOCONF confstr(FORCE);
-print AUTOCONF confstr(EXT);
-print AUTOCONF confstr(VERBOSE);
-print AUTOCONF confstr(FORCE);
-print AUTOCONF "#network\n";
+
+print AUTOCONF "\n#hyper parameters\n";
 print AUTOCONF confstr(NUMITERATIONS);
+print AUTOCONF confstr(LEARNING_RATE);
+print AUTOCONF confstr(TVWEIGHT);
 print AUTOCONF confstr(RECOLORITER);
 print AUTOCONF "#recolor content every ..\n";
 print AUTOCONF confstr(STYLEWEIGHT);
 print AUTOCONF confstr(CONTENTWEIGHT);
 print AUTOCONF confstr(CONTENTBLEND);
 print AUTOCONF confstr(TEMPORALWEIGHT);
-print AUTOCONF confstr(TVWEIGHT);
 print AUTOCONF confstr(POOLING);
 print AUTOCONF confstr(OPTIMIZER);
-print AUTOCONF confstr(LEARNING_RATE);
 print AUTOCONF confstr(BETA1);
 print AUTOCONF confstr(EPSILON);
 print AUTOCONF confstr(NORMALIZE_GRADIENT);
 print AUTOCONF confstr(SEED);
 print AUTOCONF confstr(INIT);
+
+print AUTOCONF "\n#output\n";
+print AUTOCONF confstr(OUTDIR);
+print AUTOCONF confstr(OUTPUT_SIZE);
+
+print AUTOCONF "\@tmp=split(/,/,\$NUMITERATIONS)\;\n";
+print AUTOCONF "\$PARAMS=\"_ssc\$STYLESCALE\\_\$STYLESCALELOWDEF\\_lr\$LEARNING_RATE\\_iter\@tmp[0]\"\;\n";
+#print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_\$POOLING\\_\$OPTIMIZER\\_ng\$NORMALIZE_GRADIENT\"\;\n";
+
+print AUTOCONF "\n#misc\n";
+print AUTOCONF confstr(ZEROPAD);
+print AUTOCONF confstr(FORCE);
+print AUTOCONF confstr(EXT);
+print AUTOCONF confstr(VERBOSE);
+print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(CSV);
 print AUTOCONF confstr(GPU);
-print AUTOCONF "\@tmp=split(/,/,\$NUMITERATIONS)\;\n";
-print AUTOCONF "\$PARAMS=\"_ssc\$STYLESCALE\\_iter\@tmp[0]\"\;\n";
-#print AUTOCONF "\$PARAMS=\"_lr\$LEARNING_RATE\\_\$POOLING\\_\$OPTIMIZER\\_ng\$NORMALIZE_GRADIENT\"\;\n";
 print AUTOCONF "1\n";
 }
 
@@ -336,43 +362,16 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   }
   
 $userName =  $ENV{'USER'}; 
-if (($userName eq "dev") || ($userName eq "render"))	#
-  {
-  $GMIC="/usr/bin/gmic";
-  $LUA="/shared/foss/artistic-videos/artistic_video_dev.lua";
-  $LIGHTLUA="/shared/foss/artistic-videos/artistic_video_light.lua";
-  $MULTILUA="/shared/foss/artistic-videos/artistic_video_multiPass_dev.lua";
-  $TH="/shared/foss/torch-multi/install/bin/th";
-  $IDEEPCOLOR="/usr/bin/python /shared/foss/ideepcolor/GlobalHistogramTransfer.py";
-  $PROTOTXT="/shared/foss/ideepcolor/models/global_model/deploy_nodist.prototxt";
-  $CAFFEMODEL="/shared/foss/ideepcolor/models/global_model/global_model.caffemodel";
-  $GLOBPROTOTXT="/shared/foss/ideepcolor/models/global_model/global_stats.prototxt";
-  $GLOBCAFFEMODEL="/shared/foss/ideepcolor/models/global_model/dummy.caffemodel";
-  $COLOR_TRANSFER="/shared/foss/color_transfer/color_transfer.py";
-  $HMAP="/shared/foss/hmap/hmap_c.py";
-  $LINEARCOLORTRANSFERT="python3 /shared/foss/Neural-Tools/linear-color-transfer.py";
-  $ENV{PYTHONPATH} = "/shared/foss/caffe/python:/shared/foss/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
-  verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
-  }
 
-if ($userName eq "dev18") #
+if (($userName eq "dev18") || ($userName eq "render"))	#
   {
-  $GMIC="/usr/bin/gmic";
-  $LUA="/shared/foss-18/artistic-videos/artistic_video_dev.lua";
-  $LIGHTLUA="/shared/foss-18/artistic-videos/artistic_video_light_v2.lua";
-  $MULTILUA="/shared/foss-18/artistic-videos/artistic_video_multiPass_dev.lua";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
+  $LUA="/shared/foss-18/artistic-videos/artistic_video.lua";
+  $LUA2PASS="/shared/foss-18/artistic-videos/artistic_video_2pass.lua";
   if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
   if ($HOSTNAME =~ "hp") {$TH="/shared/foss-18/torch/install/bin/th";}
   if ($HOSTNAME =~ "s005" || $HOSTNAME =~ "s006") {$TH="/shared/foss-18/torch_GTX1080/install/bin/th";}
   if ($HOSTNAME =~ "s001" || $HOSTNAME =~ "s002" || $HOSTNAME =~ "s003" || $HOSTNAME =~ "etalo") {$TH="/shared/foss-18/torch/install/bin/th";}
-  $IDEEPCOLOR="/usr/bin/python3 /shared/foss-18/ideepcolor/GlobalHistogramTransfer.py";
-  $PROTOTXT="/shared/foss-18/ideepcolor/models/global_model/deploy_nodist.prototxt";
-  $CAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/global_model.caffemodel";
-  $GLOBPROTOTXT="/shared/foss-18/ideepcolor/models/global_model/global_stats.prototxt";
-  $GLOBCAFFEMODEL="/shared/foss-18/ideepcolor/models/global_model/dummy.caffemodel";
-  $COLOR_TRANSFER="/shared/foss-18/color_transfer/color_transfer.py";
-  $HMAP="/shared/foss-18/hmap/hmap.py";
-  $LINEARCOLORTRANSFERT="python3 /shared/foss-18/Neural-Tools/linear-color-transfer.py";
   $ENV{PYTHONPATH} = "/shared/foss-18/caffe/python:/shared/foss-18/ideepcolor/caffe_files:$ENV{'PYTHONPATH'}";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/caffe/build/lib:$ENV{'LD_LIBRARY_PATH'}";
   verbose("PYTHONPATH : $ENV{'PYTHONPATH'}");
@@ -449,6 +448,12 @@ $SSTYLE=~ s/.jpg//;
 $SSTYLE=~ s/.jpeg//;
 $SSTYLE=~ s/.png//;
 $SSTYLE=~ s/\.//;
+#style lowdef
+$SSTYLELOWDEF=$STYLE_LOWDEF;
+$SSTYLELOWDEF=~ s/.jpg//;
+$SSTYLELOWDEF=~ s/.jpeg//;
+$SSTYLELOWDEF=~ s/.png//;
+$SSTYLELOWDEF=~ s/\.//;
 #content
 @tmp=split(/\./,$CONTENT);
 $CCONTENT=@tmp[0];
@@ -456,9 +461,16 @@ $CCONTENT=@tmp[0];
 if ($USE_REFILL) {$FLOWFLAG="refill";}
 else {$FLOWFLAG="dual";}
 
-if ($IN_USE_SHOT)
+if ($CONTENT_USE_SHOT)
     {
     $CONTENTPATTERN="$CONTENTDIR/$SHOT/$CONTENT.%04d.$EXT";
+    }
+else
+    {
+    $CONTENTPATTERN="$CONTENTDIR/$CONTENT.%04d.$EXT";
+    }
+if ($IN_USE_SHOT)
+    {
     $EDGESPATTERN="$EDGEDIR/$SHOT/$EDGES.%04d.$EXT";
     $FLOWPATTERN="$FLOWDIR/$SHOT/$FLOWFLAG/backward_[\%04d]_{\%04d}.flo";
     $FLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
@@ -466,11 +478,9 @@ if ($IN_USE_SHOT)
     $BACKWARDFLOWPATTERN="$FLOWDIR/$SHOT/$FLOWFLAG/backward\_[\%04d]_{\%04d}.flo";
     $FORWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
     $BACKWARDFLOWWEIGHTPATTERN="$FLOWDIR/$SHOT/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
-    
     }
 else
     {
-    $CONTENTPATTERN="$CONTENTDIR/$CONTENT.%04d.$EXT";
     $EDGESPATTERN="$EDGEDIR/$EDGES.%04d.$EXT";
     $FLOWPATTERN="$FLOWDIR/$FLOWFLAG/backward_[\%04d]_{\%04d}.flo";
     $FLOWWEIGHTPATTERN="$FLOWDIR/dual/$FLOWWEIGHT\_[\%04d]_{\%04d}.pgm";
@@ -498,7 +508,7 @@ if ($MASKOPTICALFLOW)
     }
 
 $OOUTDIR="$OUTDIR/$SHOT/";
-$OUT="$CCONTENT\_$SSTYLE$PARAMS.png";
+$OUT="$CCONTENT\_$SSTYLELOWDEF\_$SSTYLE$PARAMS.png";
 
 if (-e "$OOUTDIR/$OUT" && !$FORCE)
    {print BOLD RED "sequence $OUT exists ... skipping\n";print RESET;}
@@ -512,11 +522,11 @@ else
     
     $touchcmd="touch $OOUTDIR/$OUT";
     system $touchcmd;
-
-    #for ($i = $FSTART ;$i < $FEND ;$i++)
-    #{
-    #$cmd="$TH $LIGHTLUA -pid $$ -start_number $i -num_images 1 -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER";
-    $cmd="$TH $LIGHTLUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER -anisotropic $ANISOTROPIC";
+    
+    if ($DO2PASS) {$LUA="/shared/foss-18/artistic-videos/artistic_video_2pass.lua";}
+    else {$LUA="/shared/foss-18/artistic-videos/artistic_video.lua";}
+    
+    $cmd="$TH $LUA -pid $$ -start_number $FSTART -num_images $NUMIMAGES -seed $SEED -tv_weight $TVWEIGHT -num_iterations $NUMITERATIONS -init $INIT -pooling $POOLING -optimizer $OPTIMIZER -learning_rate $LEARNING_RATE -style_scale $STYLESCALE -content_pattern $CONTENTPATTERN -flow_pattern $FLOWPATTERN -flowWeight_pattern $FLOWWEIGHTPATTERN -style_weight $STYLEWEIGHT -content_weight $CONTENTWEIGHT -content_blend $CONTENTBLEND -temporal_weight $TEMPORALWEIGHT -output_folder $OOUTDIR -output_image $OUT -style_image $STYLEDIR/$STYLE -gpu $GPU -number_format \%04d -output_size $OUTPUT_SIZE -content_blur $CONTENTBLUR -shavex $SHAVEX -shavey $SHAVEY -expandx $EXPANDX -expandy $EXPANDY -lce $DOLOCALCONTRAST -equalize $EQUALIZE -equalizemin $EQUALIZEMIN -equalizemax $EQUALIZEMAX -brightness $BRIGHTNESS -contrast $CONTRAST -gamma $GAMMA -saturation $SATURATION -noise $NOISE -continue_with $CONTINUE_WITH -beta1 $BETA1 -epsilon $EPSILON -save_iter $RECOLORITER -anisotropic $ANISOTROPIC -histogramtransfer $HISTOGRAMTRANSFER";
     if ($NORMALIZE_GRADIENT) {$cmd=$cmd." -normalize_gradients";}
     if ($DOCOLORTRANSFERT) {$cmd=$cmd." -docolortransfer $DOCOLORTRANSFERT";}
     if ($DOINDEX) {$cmd=$cmd." -doindex $DOINDEX -indexcolor $INDEXCOLOR -indexmethod $INDEXMETHOD -dithering $DITHERING -indexroll $INDEXROLL";}
@@ -530,6 +540,7 @@ else
     if ($DOTANGENT) {$cmd=$cmd." -dotangent -tangent_pattern $TANGENTPATTERN -tangentbooster $TANGENTBOOSTER";}
     if ($DOCUSTOM) {$cmd=$cmd." -docustom -custom_pattern $CUSTOMPATTERN -custombooster $CUSTOMBOOSTER";}
     if ($MASKOPTICALFLOW) {$cmd=$cmd." -mask -mask_pattern $MASKPATTERN";}
+    if ($DO2PASS) {$cmd=$cmd." -lowdef $LOWDEF -style_image_lowdef $STYLEDIR/$STYLE_LOWDEF -style_scale_lowdef $STYLESCALELOWDEF";}
     verbose($cmd);
     system $cmd;
     #}
@@ -563,20 +574,7 @@ else
   {
   neural();
   }
-
-# gestion des keyframes
-sub keyframe {
-    @keyvals = split(/,/,$_[0]);
-    #print "keyvals = @keyvals\n";
-    $key1=$keyvals[0];
-    $key2=$keyvals[1];
-    #print ("key1 = $key1\n");
-    #print ("key2 = $key2\n");
-    #print ("keycount = $keycount\n");
-    #print ("KEYFRAME = $KEYFRAME\n");
-    return $key1+$keycount*(($key2-$key1)/$KEYFRAME);
-    }
-    
+  
 #-------------------------------------------------------#
 #---------gestion des timecodes ------------------------#
 #-------------------------------------------------------#

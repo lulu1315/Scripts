@@ -1,5 +1,5 @@
 #!/usr/bin/perl
- 
+
 use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
@@ -28,63 +28,127 @@ print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
 print BOLD BLUE "----------------------\n";print RESET;
 
+#defaults
+$FSTART="auto";
+$FEND="auto";
+$SHOT="";
+$INDIR="$CWD/originales";
+$IN="ima";
+$IN_USE_SHOT=0;
+$OUTDIR="$CWD/$scriptname";
+$OUT="ima";
+$OUT_USE_SHOT=0;
+$ZEROPAD=1;
+$FORCE=0;
+$EXT="png";
+$EXTIN="\$EXT";
+$EXTOUT="\$EXT";
+#preprocess
+$SIZE=0;
+$DOLOCALCONTRAST=0;
+$ROLLING=2;
+$BRIGHTNESS=0;
+$CONTRAST=0;
+$GAMMA=0;
+$SATURATION=0;
+#
+$VERBOSE=0;
+$CLEAN=1;
+$GPU=0;
+$CSV=0;
+$LOG1=">/var/tmp/$scriptname.log";
+$LOG2="2>/var/tmp/$scriptname.log";
+
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
 }
 
-#defaults
-$FSTART="auto";
-$FEND="auto";
-$FSTEP=1;
-$INDIR="$CWD/coherent";
-$IN="ima";
-$OUTDIR="$CWD/showflow";
-$OUT="ima";
-$EXT="exr";
-$IN_USE_SHOT=0;
-$OUT_USE_SHOT=0;
-$SHOT="";
-$CSV=0;
-$BDIR="$CWD/originales";
-$BACKGROUND="black";
-$COLOR=255;
-$ZEROPAD=4;
-$SAMPLING=20;
-$VSCALE=1;
-$GAMMA=.9;
-$MOTIONTRESHOLD=.1; #do not draw if mag(motion) < motiontreshold
+sub isnum ($) {
+#returns 0 if string 1 if number
+#http://www.perlmonks.org/?node=How%20to%20check%20if%20a%20scalar%20value%20is%20numeric%20or%20string%3F
+    return 0 if $_[0] eq '';
+    $_[0] ^ $_[0] ? 0 : 1
+}
+
+sub confstr {
+#format lines for autoconf
+  ($str) = @_;
+  if (isnum(${$str}))
+    {$line="\$$str=${$str}\;\n";}
+  else
+    {$line="\$$str=\"${$str}\"\;\n";}
+  return $line;
+  }
+
+sub autoconf {
+open (AUTOCONF,">","$scriptname\_auto.conf");
+print AUTOCONF confstr(PROJECT);
+print AUTOCONF confstr(FSTART);
+print AUTOCONF confstr(FEND);
+print AUTOCONF confstr(SHOT);
+print AUTOCONF confstr(INDIR);
+print AUTOCONF confstr(IN);
+print AUTOCONF confstr(IN_USE_SHOT);
+print AUTOCONF confstr(OUTDIR);
+print AUTOCONF confstr(OUT);
+print AUTOCONF confstr(OUT_USE_SHOT);
+print AUTOCONF confstr(ZEROPAD);
+print AUTOCONF confstr(FORCE);
+print AUTOCONF confstr(EXT);
+print AUTOCONF "#preprocess\n";
+print AUTOCONF confstr(SIZE);
+print AUTOCONF confstr(DOLOCALCONTRAST);
+print AUTOCONF confstr(ROLLING);
+print AUTOCONF confstr(BRIGHTNESS);
+print AUTOCONF confstr(CONTRAST);
+print AUTOCONF confstr(GAMMA);
+print AUTOCONF confstr(SATURATION);
+print AUTOCONF "#misc\n";
+print AUTOCONF confstr(VERBOSE);
+print AUTOCONF confstr(CLEAN);
+print AUTOCONF confstr(GPU);
+print AUTOCONF confstr(CSV);
+print AUTOCONF "1\n";
+}
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
+	print "-autoconf\n";
+	print "-conf file.conf\n";
 	print "-f startframe endframe\n";
-	print "-step step[1]\n";
 	print "-idir dirin\n";
 	print "-i imagein\n";
 	print "-odir dirout\n";
 	print "-o imageout\n";
-    print "-bdir background dir\n";
-	print "-b background [black,white,flow,image.png]\n";
-	print "-c color\n";
-	print "-s sampling\n";
-	print "-v vscale\n";
-	print "-g gamma\n";
-	print "-shot shotname\n";
-	print "-csv csv_file.csv\n";
+	print "-zeropad4 [1]\n";
+	print "-force [0]\n";
+	print "-verbose\n";
+	print "-gpu [0]\n";
+    print "-csv csv_file.csv\n";
 	exit;
 }
 
 for ($arg=0;$arg <= $#ARGV;$arg++)
   {
+  if (@ARGV[$arg] eq "-autoconf") 
+    {
+    print "writing $scriptname\_auto.conf : mv $scriptname\_auto.conf $scriptname.conf\n";
+    autoconf();
+    exit;
+    }
+  if (@ARGV[$arg] eq "-conf") 
+    {
+    $CONF=@ARGV[$arg+1];
+    print "using conf file $CONF\n";
+    require "./$CONF";
+    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
+    else {$cmd="mkdir $OUTDIR";system $cmd;}
+    }
   if (@ARGV[$arg] eq "-f") 
     {
     $FSTART=@ARGV[$arg+1];
     $FEND=@ARGV[$arg+2];
     print "seq : $FSTART $FEND\n";
-    }
-  if (@ARGV[$arg] eq "-step") 
-    {
-    $FSTEP=@ARGV[$arg+1];
-    print "step $FSTEP\n";
     }
   if (@ARGV[$arg] eq "-idir") 
     {
@@ -100,64 +164,16 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     {
     $OUTDIR=@ARGV[$arg+1];
     print "out dir : $OUTDIR\n";
-    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-    else {$cmd="mkdir $OUTDIR";system $cmd;}
     }
   if (@ARGV[$arg] eq "-o") 
     {
     $OUT=@ARGV[$arg+1];
     print "image out : $OUT\n";
     }
-  if (@ARGV[$arg] eq "-bdir") 
+  if (@ARGV[$arg] eq "-zeropad4") 
     {
-    $BDIR=@ARGV[$arg+1];
-    print "background : $BDIR\n";
-    }
-  if (@ARGV[$arg] eq "-b") 
-    {
-    $BACKGROUND=@ARGV[$arg+1];
-    print "background : $BACKGROUND\n";
-    }
-  if (@ARGV[$arg] eq "-s") 
-    {
-    $SAMPLING=@ARGV[$arg+1];
-    print "sampling : $SAMPLING\n";
-    }
-  if (@ARGV[$arg] eq "-v") 
-    {
-    $VSCALE=@ARGV[$arg+1];
-    print "vscale : $VSCALE\n";
-    }
-  if (@ARGV[$arg] eq "-g") 
-    {
-    $GAMMA=@ARGV[$arg+1];
-    print "background gamma: $GAMMA\n";
-    }
-  if (@ARGV[$arg] eq "-t") 
-    {
-    $MOTIONTRESHOLD=@ARGV[$arg+1];
-    print "motion treshold: $MOTIONTRESHOLD\n";
-    }
-  if (@ARGV[$arg] eq "-c") 
-    {
-    $COLOR=@ARGV[$arg+1];
-    print "vector color : $COLOR\n";
-    }
-  if (@ARGV[$arg] eq "-shot") 
-    {
-    $SHOT=@ARGV[$arg+1];
-    print "shotname : $SHOT\n";
-    }
-  if (@ARGV[$arg] eq "-zeropad") 
-    {
-    $ZEROPAD=@ARGV[$arg+1];
-    print "zeropad : $ZEROPAD\n";
-    }
-  if (@ARGV[$arg] eq "-csv") 
-    {
-    $CSVFILE=@ARGV[$arg+1];
-    print "csv file : $CSVFILE\n";
-    $CSV=1;
+    $ZEROPAD=1;
+    print "zeropad4 ...\n";
     }
  if (@ARGV[$arg] eq "-force") 
     {
@@ -171,15 +187,30 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $LOG2="";
     print "verbose on\n";
     }
-}
-
-$userName =  $ENV{'USER'}; 
-if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
-  {
-  $SHOWFLOW="/shared/foss-18/FlowCode/build/showflow";
+  if (@ARGV[$arg] eq "-gpu") 
+    {
+    $GPU=@ARGV[$arg+1];
+    print "gpu id : $GPU\n";
+    }
+  if (@ARGV[$arg] eq "-csv") 
+    {
+    $CSVFILE=@ARGV[$arg+1];
+    print "csv file : $CSVFILE\n";
+    $CSV=1;
+    }
   }
   
+$userName =  $ENV{'USER'}; 
+if ($userName eq "lulu" || $userName eq "dev" || $userName eq "render")	#
+  {
+  $GMIC="/usr/bin/gmic";
+  $POTRACE="/usr/bin/potrace";
+  }
+  
+if ($VERBOSE) {$LOG1="";$LOG2="";}
+
 sub csv {
+
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
@@ -206,50 +237,81 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     if ($FSTART eq "auto") {$FSTART = $min;}
     if ($FEND   eq "auto") {$FEND   = $max;}
     print ("auto  seq : $min $max\n");
-    print ("final seq : $FSTART $FEND\n");
+    $FIRSTFRAME=$min;
+    $LASTFRAME=$max;
+    print ("final seq    : $FSTART $FEND\n");
+    print ("seq boundary : $FIRSTFRAME $LASTFRAME\n");
     }
     
-for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
+for ($i = $FSTART ;$i <= $FEND;$i++)
 {
-#
-if ($ZEROPAD == 4) {$ii=sprintf("%04d",$i);}
-if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
-#
-    $IIN="$INDIR/$SHOT/$IN.$ii";
-    if ($BACKGROUND ne "black" && $BACKGROUND ne "white" && $BACKGROUND ne "flow") {
-        $BBACK="$BDIR/$SHOT/$BACKGROUND.$ii.png";
-        }
-    else {
-        $BBACK=$BACKGROUND;
-        }
+$ii=sprintf("%04d",$i);
+if ($IN_USE_SHOT)
+    {
+    $IIN="$INDIR/$SHOT/$IN.$ii.$EXTIN";
+    }
+else
+    {
+    $IIN="$INDIR/$IN.$ii.$EXTIN";
+    }
     
+if ($OUT_USE_SHOT)
+    {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT.$ii.png";
+    $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    }
+else
+    {
+    $OOUTDIR="$OUTDIR";
+    $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
+    }
 
 if (-e $OOUT && !$FORCE)
-   {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
+   {print BOLD RED "\nframe $OOUT exists ... skipping\n";print RESET;}
 else {
   #touch file
   $touchcmd="touch $OOUT";
-  if ($VERBOSE) {print "$touchcmd\n";}
-  #verbose($touchcmd);
+  verbose($touchcmd);
   system $touchcmd;
-  $cmd="$SHOWFLOW $IIN $EXT $BBACK $COLOR $OOUT $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD";
-  verbose($cmd);
+  #start timer
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
+  #workdir
+  $WORKDIR="$OOUTDIR/w$ii";
+  if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
+  #preprocess
+  $I=1;
+  if ($DOLOCALCONTRAST) 
+        {$GMIC1="-fx_LCE[0] 80,0.5,1,1,0,0";} 
+    else {$GMIC1="";}
+    if ($ROLLING) 
+        {$GMIC2="-fx_sharp_abstract $ROLLING,10,0.5,0,0";} 
+    else {$GMIC2="";}
+    if ($BRIGHTNESS || $CONTRAST || $GAMMA || $SATURATION) 
+        {$GMIC3="-fx_adjust_colors $BRIGHTNESS,$CONTRAST,$GAMMA,0,$SATURATION";} 
+    else {$GMIC3="";}
+    if ($SIZE) 
+        {$GMIC4="-resize2dx $SIZE,5";} 
+  $cmd="$GMIC -i $IIN $GMIC4 $GMIC1 $GMIC2 $GMIC3 -o $WORKDIR/$I.png $LOG2";
+  verbose($cmd);
+  print("--------> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION]\n");
+  system $cmd;
+  $IIN="$WORKDIR/$I.png";
   system $cmd;
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-  #print BOLD YELLOW "gmic : frame $ii took $hlat:$mlat:$slat \n\n";print RESET;
-  #-----------------------------#
   #afanasy parsing format
   print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
-  #print "\n";
+  if ($CLEAN)
+    {
+    $cleancmd="rm -r $WORKDIR";
+    verbose($cleancmd);
+    system $cleancmd;
+    }
   }
 }
 }
@@ -276,7 +338,15 @@ else
   {
   csv();
   }
-
+  
+#gestion des keyframes
+sub keyframe {
+    @keyvals = split(/,/,$_[0]);
+    #print "keyvals = @keyvals\n";
+    $key1=$keyvals[0];
+    $key2=$keyvals[1];
+    return $key1+$keycount*(($key2-$key1)/($KEYFRAME-1));
+    }
 #-------------------------------------------------------#
 #---------gestion des timecodes ------------------------#
 #-------------------------------------------------------#

@@ -89,6 +89,7 @@ $CLEAN=1;
 $LOG1=">/var/tmp/coherent.log";
 $LOG2="2>/var/tmp/coherent.log";
 $PARAMS="";
+$CSVFILE="./SHOTLIST.csv";
 #JSON
 $CAPACITY=500;
 $SKIP="-force";
@@ -373,7 +374,7 @@ if ($userName eq "lulu" || $userName eq "dev")	#
   
 if ($userName eq "dev18"  || $userName eq "render")	#
   {
-  $GMIC="/usr/bin/gmic";
+  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $POTRACE="/usr/bin/potrace";
   $EXR2FLO="/shared/foss-18/FlowCode/build/exr2flo";
   $ETF="/shared/foss-18/Coherent-Line-Drawing/build/ETF-cli";
@@ -415,6 +416,27 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     if ($FSTART eq "auto") {$FSTART = $min;}
     if ($FEND   eq "auto") {$FEND   = $max;}
     print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
     print ("final seq : $FSTART $FEND\n");
     }
     
@@ -469,9 +491,10 @@ else {
   $touchcmd="touch $OOUT";
   verbose($touchcmd);
   system $touchcmd;
-  
   if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
-  verbose("processing frame $ii");
+  #
+  $framesleft=($FEND-$i);
+  print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#

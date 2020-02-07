@@ -103,7 +103,7 @@ print AUTOCONF "1\n";
 }
 
 if ($#ARGV == -1) {
-	print "usage: INTRINSICS_seq.pl \n";
+	print "usage: $scriptname.pl \n";
 	print "-autoconf\n";
 	print "-conf file.conf\n";
 	print "-iter iterations [1]\n";
