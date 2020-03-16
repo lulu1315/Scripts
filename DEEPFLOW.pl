@@ -46,8 +46,7 @@ $FORCE=0;
 $EXT="png";
 $VERBOSE=0;
 $DOFLOW=1;
-$DORELIABLE=1;
-$DOEXR=1;
+$DOSHOWFLOW=1;
 $DOSEQUENTIAL=1;
 $DOREFILL=1;
 $REFILLPREBLUR=3;
@@ -66,6 +65,11 @@ $DOHOUDINI=0;
 $GPU=0;
 $GPU_OCV = "-g";
 $OFFSET=1;
+#showflow
+$SAMPLING=20;
+$VSCALE=1;
+$GAMMA=.9;
+$MOTIONTRESHOLD=.1;
 #JSON
 $CAPACITY=1000;
 $SKIP="-force";
@@ -103,6 +107,7 @@ print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
 print AUTOCONF "\$FIRSTFRAME=\$FSTART\;\n";
 print AUTOCONF "\$LASTFRAME=\$FEND\;\n";
+print AUTOCONF confstr(OFFSET);
 print AUTOCONF confstr(SHOT);
 print AUTOCONF confstr(INDIR);
 print AUTOCONF confstr(IN);
@@ -115,12 +120,11 @@ print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
 print AUTOCONF confstr(DOFLOW);
-print AUTOCONF confstr(DORELIABLE);
-print AUTOCONF confstr(DOEXR);
-print AUTOCONF confstr(DOSEQUENTIAL);
+print AUTOCONF confstr(DOSHOWFLOW);
 print AUTOCONF confstr(DOREFILL);
 print AUTOCONF confstr(REFILLPREBLUR);
 print AUTOCONF confstr(REFILLGRADIENTTRESHOLD);
+print AUTOCONF confstr(DOSEQUENTIAL);
 print AUTOCONF "#sizes\n";
 print AUTOCONF confstr(PROCESSRESX);
 print AUTOCONF "\$PRECMD=\"\-resize2dx \$PROCESSRESX,5\"\;\n";
@@ -402,6 +406,8 @@ if (-e "$OOUTDIR/dual") {print "$OOUTDIR/dual already exists\n";}
     else {$cmd="mkdir $OOUTDIR/dual";system $cmd;}
 if (-e "$OOUTDIR/sequential") {print "$OOUTDIR/sequential already exists\n";}
     else {$cmd="mkdir $OOUTDIR/sequential";system $cmd;}
+if (-e "$OOUTDIR/showflow") {print "$OOUTDIR/showflow already exists\n";}
+    else {$cmd="mkdir $OOUTDIR/showflow";system $cmd;}
 if (-e "$OOUTDIR/refill") {print "$OOUTDIR/refill already exists\n";}
     else {$cmd="mkdir $OOUTDIR/refill";system $cmd;}
     
@@ -445,135 +451,94 @@ $NEXT           ="$OOUTDIR/sequential/next.$ii.flo";
 $PREV           ="$OOUTDIR/sequential/prev.$jj.flo";
 $EXRNEXT        ="$OOUTDIR/sequential/next.$ii.exr";
 $EXRPREV        ="$OOUTDIR/sequential/prev.$jj.exr";
-
+#refill
+$REFILLMASK="$OOUTDIR/refill/refillmask.$ii.png";
+$FLOBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.flo";
+$FLOFORWARDREFILL="$OOUTDIR/refill/forward_$ii\_$jj.flo";
+$EXRPREVREFILL="$OOUTDIR/sequential/prev_refill.$jj.exr";
+$EXRNEXTREFILL="$OOUTDIR/sequential/next_refill.$ii.exr";
 #preprocess
 $WORKDIR="$OOUTDIR/w$ii";
 $WFILE1="$WORKDIR/$IN.$ii.$EXT";
 $WFILE2="$WORKDIR/$IN.$jj.$EXT";
-    
+#workdir files
 $WFORWARD       ="$WORKDIR/forward.flo";
 $WBACKWARD      ="$WORKDIR/backward.flo";
 $WFORWARDEXR    ="$WORKDIR/forward.exr";
 $WBACKWARDEXR   ="$WORKDIR/backward.exr";
+#showflow
+$SHOWFORWARD="$OOUTDIR/dual/forward_$ii\_$jj";
+$OUTSHOWFORWARD="$OOUTDIR/showflow/forward.$ii.jpg";
+$SHOWBACKWARD="$OOUTDIR/dual/backward_$jj\_$ii";
+$OUTSHOWBACKWARD="$OOUTDIR/showflow/backward.$jj.jpg";
 
 #flo files
 if ($DOFLOW)
-{
-if (-e $FORWARD && !$FORCE)
-    {print BOLD RED "frame $ii exists ... skipping\n";print RESET;}
-else
     {
-    #touch
-    $touchcmd="touch $FORWARD";
-    system $touchcmd;
-    #
-    $framesleft=($FEND-$i);
-    print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
-    #preprocess
-    verbose("preprocessing frame $ii");
-    if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
-    $gmiccmd="$GMIC -i $FILE1 $PRECMD -o $WFILE1 $LOG2";
-    verbose($gmiccmd);
-    print("--------> processing $IN.$ii.$EXT [$PRECMD]\n");
-    system $gmiccmd;
-    $gmiccmd="$GMIC -i $FILE2 $PRECMD -o $WFILE2 $LOG2";
-    verbose($gmiccmd);
-    print("--------> processing $IN.$jj.$EXT [$PRECMD]\n");
-    system $gmiccmd;
-    #flow
-    if ($FINALRESX != $PROCESSRESX)
+    if (-e $FORWARD && !$FORCE)
+        {print BOLD RED "opticalflow : frame $ii exists ... skipping\n";print RESET;}
+    else
         {
+        #touch
+        $touchcmd="touch $FORWARD";
+        system $touchcmd;
+        #
+        $framesleft=($FEND-$i);
+        print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go .. [shot: $SHOT]\n");print RESET;
+        #preprocess
+        verbose("preprocessing frame $ii");
+        if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
+        $gmiccmd="$GMIC -i $FILE1 $PRECMD -o $WFILE1 $LOG2";
+        verbose($gmiccmd);
+        print("--------> processing $IN.$ii.$EXT [$PRECMD]\n");
+        system $gmiccmd;
+        $gmiccmd="$GMIC -i $FILE2 $PRECMD -o $WFILE2 $LOG2";
+        verbose($gmiccmd);
+        print("--------> processing $IN.$jj.$EXT [$PRECMD]\n");
+        system $gmiccmd;
+        #flow
         if ($OPENCV_DEEPFLOW)
             {
-            $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE1 $WFILE2 $WFORWARD";
+            $cmd1="$DEEPFLOW_OPENCV $GPU_OCV $WFILE1 $WFILE2 $WFORWARD";
+            $cmd2="$DEEPFLOW_OPENCV $GPU_OCV $WFILE2 $WFILE1 $WBACKWARD";
             }
         else
             {
-            $cmd="$DEEPMATCH $WFILE1 $WFILE2 -nt 0 | $DEEPFLOW2 $WFILE1 $WFILE2 $WFORWARD -match -sintel $LOG1";
+            $cmd1="$DEEPMATCH $WFILE1 $WFILE2 -nt 0 | $DEEPFLOW2 $WFILE1 $WFILE2 $WFORWARD -match -sintel $LOG1";
+            $cmd2="$DEEPMATCH $WFILE2 $WFILE1 -nt 0 | $DEEPFLOW2 $WFILE2 $WFILE1 $WBACKWARD -match -sintel $LOG1";
             }
-        verbose($cmd);
-        print("--------> opticalflow forward [$ii->$jj]\n");
-        system $cmd;
-        #convert flo to exr
-        $cmd="$FLO2EXR $WFORWARD $WFORWARDEXR $LOG1";
-        verbose($cmd);
-        print("--------> flo2exr forward [resizing]\n");
-        system $cmd;
-        #resize exr to finalres
-        $MOTIONRATIO=$FINALRESX/$PROCESSRESX;
-        $cmd="$GMIC -i $WFORWARDEXR $POSTCMD -mul $MOTIONRATIO -o $WFORWARDEXR $LOG2";
-        verbose($cmd);
-        print("--------> resizing [$POSTCMD motionratio:$MOTIONRATIO]\n");
-        system $cmd;
-        #reconvert resized to flo
-        $cmd="$EXR2FLO $WFORWARDEXR $FORWARD $LOG1";
-        verbose($cmd);
-        print("--------> exr2flo forward [resizing]\n");
-        system $cmd;
-        }
-    else
-        {
-        if ($OPENCV_DEEPFLOW)
-            {
-            $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE1 $WFILE2 $FORWARD";
-            }
-        else 
-            {
-            $cmd="$DEEPMATCH $WFILE1 $WFILE2 -nt 0 | $DEEPFLOW2 $WFILE1 $WFILE2 $FORWARD -match -sintel $LOG1";
-            }
-        verbose($cmd);
-        print("--------> opticalflow forward [$ii->$jj]\n");
-        system $cmd;
-        }
-    } 
-}#end doflow
-
-#exr
-    if ($DOEXR)
-      {
-      $cmd="$FLO2EXR $FORWARD $EXRFORWARD $LOG1";
-      verbose($cmd);
-      print("--------> flo2exr  forward [$ii->$jj]");
-      system $cmd;
-      if ($DOSEQUENTIAL)
-            {
-            $cmd="ln -s $EXRFORWARD $EXRNEXT";
-            verbose($cmd);
-            print(" [+sequential]\n");
-            system $cmd;
-            }
-      if ($i == $LASTFRAME)
-        {
-        $cmd="$GMIC -i $EXRFORWARD -mul[0] 0 -o $OOUTDIR/sequential/next.$ii.exr $LOG2";
-        verbose($cmd);
-        print("--------> sequential/next.$ii.exr is a black frame\n");
-        system $cmd;
-        }
-      }
-    #backward flow : bug a rajouter ne pas faire le backward si on est a la derniere frame !
-    if ($DOFLOW)
-        {
+        verbose($cmd1);
+        print("--------> opticalflow forward  [$ii->$jj] opencv : [$OPENCV_DEEPFLOW]\n");
+        system $cmd1;
+        verbose($cmd2);
+        print("--------> opticalflow backward [$jj->$ii] opencv : [$OPENCV_DEEPFLOW]\n");
+        system $cmd2;
+        
+        #resize
         if ($FINALRESX != $PROCESSRESX)
             {
-            if ($OPENCV_DEEPFLOW)
-                {
-                $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE2 $WFILE1 $WBACKWARD";
-                }
-            else
-                {
-                $cmd="$DEEPMATCH $WFILE2 $WFILE1 -nt 0 | $DEEPFLOW2 $WFILE2 $WFILE1 $WBACKWARD -match -sintel $LOG1";
-                }
+            $MOTIONRATIO=$FINALRESX/$PROCESSRESX;
+            #forward convert flo to exr
+            $cmd="$FLO2EXR $WFORWARD $WFORWARDEXR $LOG1";
             verbose($cmd);
-            print("--------> opticalflow backward [$jj->$ii methode $METHOD]\n");
+            print("--------> flo2exr forward [resizing]\n");
             system $cmd;
-            #convert flo to exr
+            #resize exr to finalres
+            $cmd="$GMIC -i $WFORWARDEXR $POSTCMD -mul $MOTIONRATIO -o $WFORWARDEXR $LOG2";
+            verbose($cmd);
+            print("--------> resizing [$POSTCMD motionratio:$MOTIONRATIO]\n");
+            system $cmd;
+            #reconvert resized to flo
+            $cmd="$EXR2FLO $WFORWARDEXR $FORWARD $LOG1";
+            verbose($cmd);
+            print("--------> exr2flo forward [resizing]\n");
+            system $cmd;
+            #backward convert flo to exr
             $cmd="$FLO2EXR $WBACKWARD $WBACKWARDEXR $LOG1";
             verbose($cmd);
             print("--------> flo2exr backward [resizing]\n");
             system $cmd;
             #resize exr to finalres
-            $MOTIONRATIO=$FINALRESX/$PROCESSRESX;
-            verbose("motion ratio : $MOTIONRATIO");
             $cmd="$GMIC -i $WBACKWARDEXR $POSTCMD -mul $MOTIONRATIO -o $WBACKWARDEXR $LOG2";
             verbose($cmd);
             print("--------> resizing [$POSTCMD motionratio:$MOTIONRATIO]\n");
@@ -584,97 +549,36 @@ else
             print("--------> exr2flo backward [resizing]\n");
             system $cmd;
             }
-        else
-            {
-            if ($OPENCV_DEEPFLOW)
-                {
-                $cmd="$DEEPFLOW_OPENCV $GPU_OCV $WFILE2 $WFILE1 $BACKWARD";
-                }
-            else
-                {
-                $cmd="$DEEPMATCH $WFILE2 $WFILE1 -nt 0 | $DEEPFLOW2 $WFILE2 $WFILE1 $BACKWARD -match -sintel $LOG1";
-                }
-            verbose($cmd);
-            print("--------> opticalflow backward [$jj->$ii methode $METHOD]\n");
-            system $cmd;
-            }
-        }
-    #exr
-    if ($DOEXR)
-      {
-      $cmd="$FLO2EXR $BACKWARD $EXRBACKWARD $LOG1";
-      verbose("flow2exr backward : frame $jj->$ii");
-      verbose($cmd);
-      print("--------> flo2exr backward [$jj->$ii]");
-      system $cmd;
-      if ($DOSEQUENTIAL)
-            {
-            $cmd="ln -s $EXRBACKWARD $EXRPREV";
-            verbose($cmd);
-            print(" [+sequential]\n");
-            system $cmd;
-            }
-      if ($i == $FIRSTFRAME)
+    #consistency
+    $consistencycmd="$CONSISTENCYCHECK $BACKWARD $FORWARD $OOUTDIR/dual/reliable_$jj\_$ii.pgm $LOG1";
+    verbose($consistencycmd);
+    print("--------> consistency backward [$jj->$ii]\n");
+    system $consistencycmd;
+    $consistencycmd="$CONSISTENCYCHECK $FORWARD $BACKWARD $OOUTDIR/dual/reliable_$ii\_$jj.pgm $LOG1";
+    verbose($consistencycmd);
+    print("--------> consistency forward  [$ii->$jj] \n");
+    system $consistencycmd;
+        
+    #showflow
+    if ($DOSHOWFLOW) 
         {
-        $cmd="$GMIC -i $EXRBACKWARD -mul[0] 0 -o $OOUTDIR/sequential/prev.$ii.exr $LOG2";
+        $cmd="$SHOWFLOW $SHOWFORWARD flo $FILE1 255 $OUTSHOWFORWARD $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD $LOG1";
         verbose($cmd);
-        print("--------> sequential/prev.$ii.exr is a black frame\n");
+        print("--------> showflow forward\n");
+        system $cmd;
+        $cmd="$SHOWFLOW $SHOWBACKWARD flo $FILE2 255 $OUTSHOWBACKWARD $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD $LOG1";
+        verbose($cmd);
+        print("--------> showflow backward\n");
         system $cmd;
         }
-      }
-    #reliable
-    if ($DORELIABLE)
-      {
-      $consistencycmd="$CONSISTENCYCHECK $BACKWARD $FORWARD $OOUTDIR/dual/reliable_$jj\_$ii.pgm $LOG1";
-      verbose($consistencycmd);
-      print("--------> consistency backward [$jj->$ii]");
-      system $consistencycmd;
-      #$cmd="$GMIC $OOUTDIR/dual/reliable_$jj\_$ii.pgm -o $OOUTDIR/dual/reliable_$jj\_$ii.png $LOG2";
-      #verbose($cmd);
-      #print(" [+convert to png]\n");
-      #system $cmd;
-      if ($DOSEQUENTIAL)
-            {
-            #$cmd="cp $OOUTDIR/dual/reliable_$jj\_$ii.pgm $OOUTDIR/sequential/reliableprev.$jj.pgm";
-            $cmd="$GMIC $OOUTDIR/dual/reliable_$jj\_$ii.pgm -o $OOUTDIR/sequential/reliableprev.$jj.png $LOG2";
-            verbose($cmd);
-            print(" [+sequential]\n");
-            system $cmd;
-            
-            #if ($i == $FIRSTFRAME)
-            #  {
-            #  $cmd="$GMIC -i $OOUTDIR/dual/reliable_$jj\_$ii.pgm -mul 0 -o $OOUTDIR/sequential/reliableprev.$ii.png $LOG2";
-            #  verbose($cmd);
-            #  print("--------> sequential/reliableprev.$ii.pgm is a black frame\n");
-            #  system $cmd;
-            #  }
-            }
-      $consistencycmd="$CONSISTENCYCHECK $FORWARD $BACKWARD $OOUTDIR/dual/reliable_$ii\_$jj.pgm $LOG1";
-      verbose($consistencycmd);
-      print("--------> consistency forward  [$ii->$jj]");
-      system $consistencycmd;
-      #$cmd="$GMIC $OOUTDIR/dual/reliable_$ii\_$jj.pgm -o $OOUTDIR/dual/reliable_$ii\_$jj.png $LOG2";
-      #verbose($cmd);
-      #print(" [+convert to png]\n");
-      #system $cmd;
-      if ($DOSEQUENTIAL)
-            {
-            #$cmd="cp $OOUTDIR/dual/reliable_$ii\_$jj.pgm $OOUTDIR/sequential/reliablenext.$ii.pgm";
-            $cmd="$GMIC $OOUTDIR/dual/reliable_$ii\_$jj.pgm -o $OOUTDIR/sequential/reliablenext.$ii.png $LOG2";
-            verbose($cmd);
-            print(" [+sequential]\n");
-            system $cmd;
-            
-            if ($i == $LASTFRAME)
-                {
-                $cmd="$GMIC -i $OOUTDIR/dual/reliable_$ii\_$jj.pgm -mul 0 -o $OOUTDIR/sequential/reliablenext.$ii.png $LOG2";
-                verbose($cmd);
-                print("--------> sequential/reliablenext.$ii.pgm is a black frame\n");
-                system $cmd;
-                }
-        }
-      }
-    if ($DOREFILL)
+    }
+}#end doflow
+
+if ($DOREFILL)
+    {
+    if (-e $REFILLMASK && !$FORCE)
+        {print BOLD RED "refill : frame $ii exists ... skipping\n";print RESET;}
+    else
         {
         #all in one
         #$cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD $EXRBACKWARD -inpaint_flow[1] [0] -o[1] $EXRBACKWARDREFILL $LOG2";
@@ -684,61 +588,101 @@ else
         #inpaint pde
         #diffusion_type={ 0=isotropic | 1=delaunay-guided | 2=edge-guided }
         $DIFFUSIONTYPE=0;
-        
         #compute mask
-        $REFILLMASK="$OOUTDIR/refill/refillmask.$ii.png";
         $cmd="$GMIC $FILE1 -b $REFILLPREBLUR -luminance -gradient_norm -le $REFILLGRADIENTTRESHOLD mul 255 -resize2dx $FINALRESX,5 -c 0,255 -o $REFILLMASK $LOG2";
         verbose($cmd);
         print("--------> compute gradient mask $ii\n");
         system $cmd;
-        
-    #refill backward
-        #$EXRBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.exr";
-        $FLOBACKWARDREFILL="$OOUTDIR/refill/backward_$jj\_$ii.flo";
-        $EXRPREVREFILL="$OOUTDIR/refill/prev.$jj.exr";
-        #refill
+        #refill backward
         $cmd="$GMIC $REFILLMASK div 255 $BACKWARD -inpaint_pde[1] [0],75%,$DIFFUSIONTYPE,20 -o[1] $FLOBACKWARDREFILL $LOG2";
         verbose($cmd);
         print("--------> refill backward flow $jj->$ii\n");
         system $cmd;
-        #convert to .flo
-        #$cmd="$EXR2FLO $EXRBACKWARDREFILL $FLOBACKWARDREFILL";
-        #verbose($cmd);
-        #print("--------> convert to flo\n");
-        #system $cmd;
-        #sequential
-        if ($DOSEQUENTIAL)
-            {
-            $cmd="ln -s $EXRBACKWARDREFILL $EXRPREVREFILL";
-            verbose($cmd);
-            print(" [+backward sequential]\n");
-            system $cmd;
-            }
-    #refill forward
-        #$EXRFORWARDREFILL="$OOUTDIR/refill/forward_$ii\_$jj.exr";
-        $FLOFORWARDREFILL="$OOUTDIR/refill/forward_$ii\_$jj.flo";
-        $EXRNEXTREFILL="$OOUTDIR/refill/next.$ii.exr";
-        #refill
+        #refill forward
         $cmd="$GMIC $REFILLMASK div 255 $FORWARD -inpaint_pde[1] [0],75%,$DIFFUSIONTYPE,20 -o[1] $FLOFORWARDREFILL $LOG2";
         verbose($cmd);
         print("--------> refill forward flow $ii->$jj\n");
         system $cmd;
-        #convert to .flo
-        #$cmd="$EXR2FLO $EXRFORWARDREFILL $FLOFORWARDREFILL";
-        #verbose($cmd);
-        #print("--------> convert to flo\n");
-        #system $cmd;
-        #sequential
-        if ($DOSEQUENTIAL)
+        
+        #showflow
+        if ($DOSHOWFLOW) 
             {
-            $cmd="ln -s $EXRFORWARDREFILL $EXRNEXTREFILL";
+            $SHOWFORWARD="$OOUTDIR/refill/forward_$ii\_$jj";
+            $OUTSHOWFORWARD="$OOUTDIR/showflow/refillforward.$ii.jpg";
+            $SHOWBACKWARD="$OOUTDIR/refill/backward_$jj\_$ii";
+            $OUTSHOWBACKWARD="$OOUTDIR/showflow/refillbackward.$jj.jpg";
+            $cmd="$SHOWFLOW $SHOWFORWARD flo $FILE1 255 $OUTSHOWFORWARD $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD $LOG1";
             verbose($cmd);
-            print(" [+forward sequential]\n");
+            print("--------> refill showflow forward\n");
+            system $cmd;
+            $cmd="$SHOWFLOW $SHOWBACKWARD flo $FILE2 255 $OUTSHOWBACKWARD $SAMPLING $VSCALE $GAMMA $MOTIONTRESHOLD $LOG1";
+            verbose($cmd);
+            print("--------> refill showflow backward\n");
             system $cmd;
             }
+        }
     }
     
-    if ($CLEAN)
+if ($DOSEQUENTIAL)
+    {
+    if (-e $EXRNEXT && !$FORCE)
+        {print BOLD RED "sequential : frame $ii exists ... skipping\n";print RESET;}
+    else
+        {
+        #forward -> next
+        $cmd="$FLO2EXR $FORWARD $EXRNEXT $LOG2";
+        verbose($cmd);
+        print(" [+forward sequential]\n");
+        system $cmd;
+        $cmd="$GMIC $OOUTDIR/dual/reliable_$ii\_$jj.pgm -o $OOUTDIR/sequential/reliablenext.$ii.png $LOG2";
+        verbose($cmd);
+        print(" [+consistency forward sequential]\n");
+        system $cmd;
+    #if ($i == $LASTFRAME)
+    #    {
+    #    $cmd="$GMIC -i $FORWARD -mul[0] 0 -o $EXRNEXT $LOG2";
+    #    verbose($cmd);
+    #    print("--------> sequential/next.$ii.exr is a black frame\n");
+    #    system $cmd;
+    #    $cmd="$GMIC -i $OOUTDIR/dual/reliable_$ii\_$jj.pgm -mul 0 -o $OOUTDIR/sequential/reliablenext.$ii.png $LOG2";
+    #    verbose($cmd);
+    #    print("--------> sequential/reliablenext.$ii.pgm is a black frame\n");
+    #    system $cmd;
+    #    }
+    #backward -> prev
+        $cmd="$FLO2EXR $BACKWARD $EXRPREV $LOG2";
+        verbose($cmd);
+        print(" [+backward sequential]\n");
+        system $cmd;
+        $cmd="$GMIC $OOUTDIR/dual/reliable_$jj\_$ii.pgm -o $OOUTDIR/sequential/reliableprev.$jj.png $LOG2";
+        verbose($cmd);
+        print(" [+consistency backward sequential]\n");
+        system $cmd;
+    #if ($i == $FIRSTFRAME)
+    #    {
+    #    $cmd="$GMIC -i $BACKWARD -mul[0] 0 -o $EXRPREV $LOG2";
+    #    verbose($cmd);
+    #    print("--------> sequential/prev.$ii.exr is a black frame\n");
+    #    system $cmd;
+    #    $cmd="$GMIC -i $OOUTDIR/dual/reliable_$jj\_$ii.pgm -mul 0 -o $OOUTDIR/sequential/reliableprev.$ii.png $LOG2";
+    #    verbose($cmd);
+    #    print("--------> sequential/reliableprev.$ii.pgm is a black frame\n");
+    #    system $cmd;
+    #    }
+        if ($DOREFILL) {
+            $cmd="$FLO2EXR $FLOBACKWARDREFILL $EXRPREVREFILL $LOG1";
+            verbose($cmd);
+            print(" [+refill backward sequential]\n");
+            system $cmd;
+            $cmd="$FLO2EXR $FLOFORWARDREFILL $EXRNEXTREFILL $LOG1";
+            verbose($cmd);
+            print(" [+refill forward sequential]\n");
+            system $cmd;
+        }
+    }
+} #end sequential
+
+    if ($CLEAN && -d $WORKDIR)
         {
         $cleancmd="rm -r $WORKDIR";
         verbose($cleancmd);
@@ -750,8 +694,7 @@ else
     print BOLD YELLOW "Writing next.$ii.exr opticalflow all frames took $hlat:$mlat:$slat \n";
     print RESET;
 }
-}
-    
+
 if ($DOHOUDINI)
 {
 #do houdini scene

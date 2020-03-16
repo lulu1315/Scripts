@@ -4,6 +4,7 @@ use File::Find qw(find);
 use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
+use Scalar::Util qw(looks_like_number);
 
 $script = $0;
 print BOLD BLUE "script : $script\n";print RESET;
@@ -104,7 +105,7 @@ find({ wanted => sub { push @shots, $_ } , no_chdir => 1 }, @dirs);
 
 foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots) 
     { 
-    if ((-d "$shot") && (index($shot, "snaps") == -1)) #make sure it is a directory
+    if ((-d "$shot") && (index($shot, "snaps") == -1) && (index($shot, "work") == -1)) #make sure it is a directory
         {
         print "scanning shot : $shot\n";
         opendir SHOT, "$shot";
@@ -115,9 +116,9 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
         foreach $image (@images) 
             {
             @tmp=split(/\./,$image);
-            if ($#tmp >= 2)
+            if ($#tmp >= 2 && looks_like_number(@tmp[$#tmp-1]))
                 {
-                #$imaroot=@tmp[$#tmp-2];
+                $imaroot=@tmp[$#tmp-2];
                 $imaroot=join '.', @tmp[0 .. $#tmp-2];
                 unless ($seen{$imaroot}) 
                     {
@@ -140,7 +141,7 @@ foreach $shot (sort { substr($a, 1) <=> substr($b, 1) } @shots)
                     { 
                     #print ("$ima\n");
                     @tmp=split(/\./,$image);
-                    if ($#tmp >= 2 && @tmp[$#tmp] eq $EXT)
+                    if ($#tmp >= 2 && @tmp[$#tmp] eq $EXT && looks_like_number(@tmp[$#tmp-1]))
                         {
                         #print("image : $image @tmp[$#tmp]\n");
                         $numframe=int($tmp[$#tmp-1]);

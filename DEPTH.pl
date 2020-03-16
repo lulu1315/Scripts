@@ -60,6 +60,8 @@ $IN_USE_SHOT=0;
 $OUTDIR="$CWD/$scriptname";
 $OUT="ima";
 $OUT_USE_SHOT=1;
+$METHOD=1;
+#0 = 3d-ken-burns 1=MegaDepth
 #clamp depth
 $CLAMPMIN=0;
 $CLAMPMAX=3000;
@@ -73,6 +75,8 @@ $CSV=0;
 $CSVFILE="./SHOTLIST.csv";
 $LOG1=">/var/tmp/$scriptname.log";
 $LOG2="2>/var/tmp/$scriptname.log";
+$LOG3="2>1 /var/tmp/$scriptname.log";
+
 #JSON
 $CAPACITY=500;
 $SKIP="-force";
@@ -91,6 +95,8 @@ print AUTOCONF confstr(IN_USE_SHOT);
 print AUTOCONF confstr(OUTDIR);
 print AUTOCONF confstr(OUT);
 print AUTOCONF confstr(OUT_USE_SHOT);
+print AUTOCONF confstr(METHOD);
+print AUTOCONF confstr("\n#0=3d-ken-burns 1=MegaDepth");
 print AUTOCONF confstr(CLAMPMIN);
 print AUTOCONF confstr(CLAMPMAX);
 print AUTOCONF confstr(CLAMPGAMMA);
@@ -210,9 +216,10 @@ if ($userName eq "dev18" || $userName eq "render")	#
   {
   $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $DEPTH="python3 /shared/foss-18/3d-ken-burns/depthestim.py";
+  $MEGADEPTH="python3 /shared/foss-18/MegaDepth/demo.py";
   }
   
-if ($VERBOSE) {$LOG1="";$LOG2="";}
+if ($VERBOSE) {$LOG1="";$LOG2="";$LOG3="";}
 
 sub csv {
 #auto frames
@@ -283,20 +290,20 @@ else
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT";
-    $DEPTHCLAMPOOUT="$OOUTDIR/$OUT\_depthclamp.$ii.png";
-    $DISPARITYCLAMPOOUT="$OOUTDIR/$OUT\_disparityclamp.$ii.png";
-    $CHECKOOUT="$OOUTDIR/$OUT\_depth.$ii.exr";
+    $OOUT="$OOUTDIR/$OUT\_m$METHOD";
+    $DEPTHCLAMPOOUT="$OOUT\_depthclamp.$ii.png";
+    $DISPARITYCLAMPOOUT="$OOUT\_disparityclamp.$ii.png";
+    $CHECKOOUT="$OOUT\_depth.$ii.exr";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
 else
     {
     $OOUTDIR="$OUTDIR";
-    $OOUT="$OUTDIR/$OUT";
-    $DEPTHCLAMPOOUT="$OOUTDIR/$OUT\_depthclamp.$ii.png";
-    $DISPARITYCLAMPOOUT="$OOUTDIR/$OUT\_disparityclamp.$ii.png";
-    $CHECKOOUT="$OOUTDIR/$OUT\_depth.$ii.exr";
+    $OOUT="$OUTDIR/$OUT\_m$METHOD";
+    $DEPTHCLAMPOOUT="$OOUT\_depthclamp.$ii.png";
+    $DISPARITYCLAMPOOUT="$OOUT\_disparityclamp.$ii.png";
+    $CHECKOOUT="$OOUT\_depth.$ii.exr";
     if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
     else {$cmd="mkdir $OOUTDIR";system $cmd;}
     }
@@ -308,21 +315,29 @@ else {
   $touchcmd="touch $CHECKOOUT";
   if ($VERBOSE) {print "$touchcmd\n";}
   system $touchcmd;
-  $cmd="$DEPTH --in $IIN $OP --out $OOUT --f $ii $LOG2";
-  verbose($cmd);
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
-  system $cmd;
-  #clamp depth
-  #$clampcmd="$GMIC $OOUT\_depth.$ii.exr -split c -remove[1,2,3] -c $CLAMPMIN,$CLAMPMAX -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
-  $clampcmd="$GMIC $OOUT\_depth.$ii.exr -split c -remove[1,2,3] -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
-  verbose($clampcmd);
-  system $clampcmd;
-  #clamp depth
-  $clampcmd="$GMIC $OOUT\_disparity.$ii.exr -split c -remove[1,2,3] -n 0,255 -o $DISPARITYCLAMPOOUT $LOG2";
-  verbose($clampcmd);
-  system $clampcmd;
+  if ($METHOD == 0) {
+    $cmd="$DEPTH --in $IIN --out $OOUT --f $ii $LOG2";
+    verbose($cmd);
+    system $cmd;
+    #clamp depth
+    #$clampcmd="$GMIC $OOUT\_depth.$ii.exr -split c -remove[1,2,3] -c $CLAMPMIN,$CLAMPMAX -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
+    $clampcmd="$GMIC $CHECKOOUT -split c -remove[1,2,3] -n 0,1 -oneminus -n 0,255 -apply_gamma $CLAMPGAMMA -o $DEPTHCLAMPOOUT $LOG2";
+    verbose($clampcmd);
+    system $clampcmd;
+    #clamp depth
+    $clampcmd="$GMIC $OOUT\_disparity.$ii.exr -split c -remove[1,2,3] -n 0,255 -o $DISPARITYCLAMPOOUT $LOG2";
+    verbose($clampcmd);
+    system $clampcmd;
+    }
+  if ($METHOD == 1) {
+    $cmd="$MEGADEPTH --in_file $IIN --out_file $OOUT --frame $ii";
+    print($cmd);
+    verbose($cmd);
+    system $cmd;
+  }
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);

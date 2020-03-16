@@ -83,6 +83,7 @@ $FORCE=0;
 #log
 $LOG1=" > /var/tmp/$scriptname.log";
 $LOG2=" 2> /var/tmp/$scriptname.log";
+$CSVFILE="./SHOTLIST.csv";
 
 sub verbose {
     if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
@@ -219,6 +220,26 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     print ("auto  seq : $min $max\n");
     }
     
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
+    }
+    
 print ("final seq : $FSTART $FEND\n");
 $FFSTART=1;
 $FFEND=($FEND-$FSTART+1);
@@ -302,7 +323,7 @@ if ($userName eq "dev18")	#
   $SEGMENTCONVERT="/shared/foss-18/video_segment/bin/segment_converter/segment_converter";
   $ENV{LD_LIBRARY_PATH} = "/shared/foss-18/SegmentationOfMovingObjects/moseg_2013:$ENV{'LD_LIBRARY_PATH'}";
   }
-  
+    
 #shot directories
 if ($IN_USE_SHOT) {$IINDIR="$INDIR/$SHOT";}
 else {$IINDIR="$INDIR";}
@@ -351,14 +372,14 @@ for ($i = $FSTART ;$i <= $FEND;$i++)
     if ($EXTIN eq "exr")
         {$GMIC8="-mul 255 -apply_gamma 2.2";} 
     else {$GMIC8="";}
-    $cmd="$GMIC -i $IINDIR/$IN.$ii.$EXTIN -to_colormode 3 $GMIC8 $GMIC1 $GMIC3 $GMIC4 $GMIC2 $GMIC7 $GMIC5 $GMIC6 -o $DATADIR/$OUT.$jj.ppm";
+    $cmd="$GMIC -i $IINDIR/$IN.$ii.$EXTIN -to_colormode 3 $GMIC8 $GMIC1 $GMIC3 $GMIC4 $GMIC2 $GMIC7 $GMIC5 $GMIC6 -o $DATADIR/$OUT.$jj.ppm $LOG2";
     verbose($cmd);
     print BOLD YELLOW "frame : $i ";print RESET;
     print("-> preprocess input [size:$SIZE lce:$DOLOCALCONTRAST rolling:$ROLLING bcgs:$BRIGHTNESS/$CONTRAST/$GAMMA/$SATURATION bilateral:$BILATERAL]\n");
     system $cmd;
     if ($DOPNG)
     {
-    $cmd="$GMIC -i $DATADIR/$OUT.$jj.ppm -o $DATADIR/$OUT.$jj.png";
+    $cmd="$GMIC -i $DATADIR/$OUT.$jj.ppm -o $DATADIR/$OUT.$jj.png $LOG2";
     verbose($cmd);
     print("-> copy ppm to png\n");
     system $cmd;
@@ -916,7 +937,7 @@ if ($DOSLIC)
         verbose($cmd);
         system $cmd;
         #
-        $cmd="$GMIC $SSLIC/$SLIC.$ii.png -o $SEGMENTDIR/$OUT.$ii\_seg0.ppm";
+        $cmd="$GMIC $SSLIC/$SLIC.$ii.png -o $SEGMENTDIR/$OUT.$ii\_seg0.ppm $LOG2";
         verbose($cmd);
         system $cmd;
         #

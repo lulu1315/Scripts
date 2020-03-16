@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-
+ 
 use Cwd;
 use Env;
 use Term::ANSIColor qw(:constants);
@@ -28,34 +28,9 @@ print BOLD BLUE "script  : $scriptname\n";print RESET;
 print BOLD BLUE "project : $PROJECT\n";print RESET;
 print BOLD BLUE "----------------------\n";print RESET;
 
-#defaults
-$FSTART="auto";
-$FEND="auto";
-$FSTEP=1;
-$SHOT="";
-$INDIR="$CWD/originales";
-$IN="ima";
-$IN_USE_SHOT=0;
-$OUTDIR="$CWD/waifu2x";
-$OUT="ima";
-$OUT_USE_SHOT=0;
-$ZEROPAD=4;
-$FORCE=0;
-$EXT="png";
-$VERBOSE=0;
-$OP="noise_scale";
-$NOISE=3;
-$OUTSIZE=0;
-$POSTOP="";
-$GPU=0;
-$CSV=0;
-$CSVFILE="./SHOTLIST.csv";
-$LOG1=">/var/tmp/waiku_$GPU.log";
-$LOG2="2>/var/tmp/waiku_$GPU.log";
-#JSON
-$CAPACITY=1000;
-$SKIP="-force";
-$FPT=5;
+sub verbose {
+    if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
+}
 
 sub isnum ($) {
 #returns 0 if string 1 if number
@@ -73,12 +48,33 @@ sub confstr {
     {$line="\$$str=\"${$str}\"\;\n";}
   return $line;
   }
-sub verbose {
-    if ($VERBOSE) {print BOLD GREEN "@_\n";print RESET}
-}
+  
+#defaults
+$FSTART="auto";
+$FEND="auto";
+$FSTEP=1;
+$SHOT="";
+$INDIR="$CWD/originales";
+$IN="ima";
+$IN_USE_SHOT=0;
+$OUTDIR="$CWD/$scriptname";
+$OUT="ima";
+$OUT_USE_SHOT=1;
+$ZEROPAD=4;
+$FORCE=0;
+$EXT="png";
+$VERBOSE=0;
+$CSV=0;
+$CSVFILE="./SHOTLIST.csv";
+$LOG1=">/var/tmp/$scriptname.log";
+$LOG2="2>/var/tmp/$scriptname.log";
+#JSON
+$CAPACITY=500;
+$SKIP="-force";
+$FPT=5;
 
 sub autoconf {
-open (AUTOCONF,">","waifu_auto.conf");
+open (AUTOCONF,">","$scriptname\_auto.conf");
 print AUTOCONF confstr(PROJECT);
 print AUTOCONF confstr(FSTART);
 print AUTOCONF confstr(FEND);
@@ -94,40 +90,27 @@ print AUTOCONF confstr(ZEROPAD);
 print AUTOCONF confstr(FORCE);
 print AUTOCONF confstr(EXT);
 print AUTOCONF confstr(VERBOSE);
-print AUTOCONF confstr(OP);
-print AUTOCONF confstr(NOISE);
-print AUTOCONF confstr(OUTSIZE);
-print AUTOCONF confstr(POSTOP);
-print AUTOCONF "#flip vertically in nuke if cropping\n";
-print AUTOCONF confstr(GPU);
-print AUTOCONF confstr(CSV);
-print AUTOCONF "#json - submit to afanasy\n";
-print AUTOCONF confstr(CAPACITY);
-print AUTOCONF confstr(SKIP);
-print AUTOCONF confstr(FPT);
 print AUTOCONF "1\n";
+close AUTOCONF;
 }
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
-    print "-autoconf\n";
+	print "-autoconf\n";
 	print "-conf file.conf\n";
 	print "-f startframe endframe\n";
-    print "-fstep [1]\n";
+	print "-step step[1]\n";
 	print "-idir dirin\n";
 	print "-i imagein\n";
 	print "-odir dirout\n";
 	print "-o imageout\n";
 	print "-shot shotname\n";
-	print "-e image ext (png)\n";
-	print "-n noiselevel\n";
-	print "-op operation (default noise_scale)\n";
 	print "-zeropad [4]\n";
-	print "-force\n";
-	print "-resize res [output x size]\n";
-    print "-gpu gpu_id [0]\n";
-	print "-csv csv_file.csv\n";
+	print "-force [0]\n";
+	print "-verbose\n";
+    print "-csv csv_file.csv\n";
     print "-json [submit to afanasy]\n";
+    print "-xml  [submit to royalrender]\n";
 	exit;
 }
 
@@ -135,10 +118,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
   {
   if (@ARGV[$arg] eq "-autoconf") 
     {
-    print "writing waifu_auto.conf : mv waifu_auto.conf waifu.conf\n";
+    print "writing $scriptname\_auto.conf : mv $scriptname\_auto.conf $scriptname.conf\n";
     autoconf();
-    if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-    else {$cmd="mkdir $OUTDIR";system $cmd;}
     exit;
     }
   if (@ARGV[$arg] eq "-conf") 
@@ -155,10 +136,10 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $FEND=@ARGV[$arg+2];
     print "seq : $FSTART $FEND\n";
     }
-  if (@ARGV[$arg] eq "-fstep") 
+  if (@ARGV[$arg] eq "-step") 
     {
     $FSTEP=@ARGV[$arg+1];
-    print "fstep : $FSTEP\n";
+    print "step $FSTEP\n";
     }
   if (@ARGV[$arg] eq "-idir") 
     {
@@ -185,47 +166,22 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     $SHOT=@ARGV[$arg+1];
     print "shotname : $SHOT\n";
     }
-  if (@ARGV[$arg] eq "-e") 
-    {
-    $EXT=@ARGV[$arg+1];
-    print "ext : $EXT\n";
-    }
-  if (@ARGV[$arg] eq "-n") 
-    {
-    $NOISE=@ARGV[$arg+1];
-    print "noise level : $NOISE\n";
-    }
   if (@ARGV[$arg] eq "-zeropad") 
     {
     $ZEROPAD=@ARGV[$arg+1];
-    print "zeropad  $ZEROPAD...\n";
+    print "zeropad : $ZEROPAD\n";
     }
-  if (@ARGV[$arg] eq "-op") 
-    {
-    $OP=@ARGV[$arg+1];
-    print "op : $OP\n";
-    }
-  if (@ARGV[$arg] eq "-force") 
+ if (@ARGV[$arg] eq "-force") 
     {
     $FORCE=1;
-    print "force\n";
-    }
-  if (@ARGV[$arg] eq "-resize") 
-    {
-    $OUTSIZE=@ARGV[$arg+1];
-    print "outsize : $OUTSIZE\n";
+    print "force output ...\n";
     }
  if (@ARGV[$arg] eq "-verbose") 
     {
     $VERBOSE=1;
     $LOG1="";
     $LOG2="";
-    print "verbose ...\n";
-    }
-  if (@ARGV[$arg] eq "-gpu") 
-    {
-    $GPU=@ARGV[$arg+1];
-    print "gpu id : $GPU\n";
+    print "verbose on\n";
     }
   if (@ARGV[$arg] eq "-csv") 
     {
@@ -233,64 +189,25 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
     print "csv file : $CSVFILE\n";
     $CSV=1;
     }
-  if (@ARGV[$arg] eq "-json") 
-    {
-    if ($CSV)
-        {
-        open (CSV , "$CSVFILE");
-        while ($line=<CSV>)
-            {
-            chop $line;
-            @line=split(/,/,$line);
-            $SHOT=@line[0];
-            $FSTART=@line[3];
-            $FEND=@line[4];
-            $LENGTH=@line[5];   
-            $process=@line[6];
-            if ($process)
-                {
-                json();
-                }
-            }
-        }
-        else
-        {
-        json();
-        }
-    exit;
-    }
-  }
-  
+}
+
 $userName =  $ENV{'USER'}; 
-if ($userName eq "dev" || $userName eq "render")	#
+if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
   {
-  $GMIC="/shared/foss/gmic/src/gmic";
-  $TH="/shared/foss/torch-multi/install/bin/th";
-  $LUA="/shared/foss/waifu2x-dev/waifu2x.lua";
-  $MODELDIR="/shared/foss/waifu2x-dev/models/anime_style_art_rgb/";
-#  $MODELDIR="/shared/foss/waifu2x-dev/models/photo/";
-#  $MODELDIR="/shared/foss/waifu2x-dev/models/anime_style_art/";
+  $GMIC="/usr/bin/gmic";
+  $DETECTRON2="python3 /shared/foss-18/detectron2/demo/demo.py";
+  $POINTREND="python3 /shared/foss-18/detectron2/pointrend.py";
+  $CONFIG="/shared/foss-18/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml";
+  $WEIGHTS="detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl";
   }
   
-if ($userName eq "dev18")	#
-  {
-  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
-  if ($HOSTNAME =~ "v8") {$TH="/shared/foss-18/torch-amd/install/bin/th";}
-  if ($HOSTNAME =~ "hp") {$TH="/shared/foss-18/torch/install/bin/th";}
-  if ($HOSTNAME =~ "s005" || $HOSTNAME =~ "s006") {$TH="/shared/foss-18/torch_GTX1080/install/bin/th";}
-  if ($HOSTNAME =~ "s001" || $HOSTNAME =~ "s002" || $HOSTNAME =~ "s003" || $HOSTNAME =~ "etalo") {$TH="/shared/foss-18/torch/install/bin/th";}
-  $LUA="/shared/foss-18/waifu2x/waifu2x.lua";
-  $MODELDIR="/shared/foss-18/waifu2x/models/anime_style_art_rgb/";
-#  $MODELDIR="/shared/foss-18/waifu2x/models/photo/";
-#  $MODELDIR="/shared/foss-18/waifu2x/models/anime_style_art/";
-  }
-  
-$GPU++;
-  
+if ($VERBOSE) {$LOG1="";$LOG2="";}
+
+sub csv {
 #auto frames
 if ($FSTART eq "auto" || $FEND eq "auto")
     {
-    $AUTODIR="$INDIR/$SHOT";
+    if ($IN_USE_SHOT) {$AUTODIR="$INDIR/$SHOT";} else {$AUTODIR="$INDIR";}
     print ("frames $FSTART $FEND dir $AUTODIR\n");
     opendir DIR, "$AUTODIR";
     @images = grep { /$IN/ && /$EXT/ } readdir DIR;
@@ -337,20 +254,12 @@ if ($FSTART eq "csv" || $FEND eq "csv")
     print ("final seq : $FSTART $FEND\n");
     }
     
-if (-e "$OUTDIR") {print "$OUTDIR already exists\n";}
-else {$cmd="mkdir $OUTDIR";system $cmd;}
-
-sub csv {
-for ($i = $FSTART ;$i <= $FEND;$i=$i+$FSTEP)
+for ($i = $FSTART ;$i <= $FEND; $i=$i+$FSTEP)
 {
-if ($ZEROPAD == 4)
-    {
-    $ii=sprintf("%04d",$i);
-    }
-if ($ZEROPAD == 5)
-    {
-    $ii=sprintf("%05d",$i);
-    }
+#
+if ($ZEROPAD == 4) {$ii=sprintf("%04d",$i);}
+if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
+#
 if ($IN_USE_SHOT)
     {
     $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
@@ -359,59 +268,52 @@ else
     {
     $IIN="$INDIR/$IN.$ii.$EXT";
     }
-#outdir and final frame
+#
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
     $OOUT="$OOUTDIR/$OUT.$ii.$EXT";
-    if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
-    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    $POOUT="$OOUTDIR/$OUT";
+    $CHECKOOUT="$POOUT\_mask.$ii.$EXT";
     }
 else
     {
+    $OOUTDIR="$OUTDIR";
     $OOUT="$OUTDIR/$OUT.$ii.$EXT";
+    $POOUT="$OOUTDIR/$OUT";
+    $CHECKOOUT="$POOUT\_mask.$ii.$EXT";
     }
-    
-if (-e $OOUT && !$FORCE)
-{print BOLD RED "frame $OUT.$ii.$EXT exists ... skipping\n";print RESET;}
-else
-{
+if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
+    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+#    
+if (-e $CHECKOOUT && !$FORCE)
+   {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
+else {
   #touch file
-  $touchcmd="touch $OOUT";
-  verbose($touchcmd);
+  $touchcmd="touch $CHECKOOUT";
+  if ($VERBOSE) {print "$touchcmd\n";}
   system $touchcmd;
+  #
+  $framesleft=($FEND-$i);
+  print BOLD YELLOW ("\nshot : $SHOT processing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
-  $framesleft=($FEND-$i);
-  print BOLD YELLOW ("\nshot $SHOT : processing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
-  #
-  $cmd="$TH $LUA -force_cudnn 1 -gpu $GPU -model_dir $MODELDIR -m $OP -noise_level $NOISE -i $IIN -o $OOUT $LOG2";
+  #do your shit here
+  #$cmd="$DETECTRON2 --config-file $CONFIG  --input $IIN --output $OOUT --opts MODEL.WEIGHTS $WEIGHTS";
+  $cmd="$POINTREND --in $IIN --out $POOUT --f $ii";
   verbose($cmd);
-  print("--------> waifu2x [op:$OP noise:$NOISE gpu:$GPU]\n");
   system $cmd;
-
-if ($OUTSIZE || ($POSTOP ne ""))
-  {
-  if ($OUTSIZE) {$GMIC1="-resize2dy $OUTSIZE,5";} else {$GMIC1="";}
-  if ($POSTOP ne "") {$GMIC2=$POSTOP;} else {$GMIC2="";}
-  $cmd="$GMIC -i $OOUT $GMIC2 $GMIC1 -o $OOUT $LOG2";
-  verbose($cmd);
-  print("--------> resize/postop [size:$OUTSIZE postop:$POSTOP]\n");
-  system $cmd;
+  #-----------------------------#
+  ($s2,$m2,$h2)=localtime(time);
+  ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
+  #-----------------------------#
+  #afanasy parsing format
+  print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
   }
-#-----------------------------#
-($s2,$m2,$h2)=localtime(time);
-($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
-#print BOLD YELLOW "\nWriting $OOUT took $hlat:$mlat:$slat\n";print RESET;
-#afanasy parsing format
-print BOLD YELLOW "Writing $OOUT took $hlat:$mlat:$slat\n";print RESET;
-#-----------------------------#
- }
 }
-}#end csv
+}
 
-#main
 if ($CSV)
   {
   open (CSV , "$CSVFILE");
@@ -487,45 +389,4 @@ sub lapse  {
 #	print "$glob1 $glob2 $glob \n";
 	my ($s,$m,$h) =globtohms($glob);
 	return ($s,$m,$h);
-}
-
-sub json {
-$CMD="WAIFU2X";
-$FRAMESINC=1;
-$PARSER="gpuserv";
-$SERVICE="gpuserv";
-$OFFLINE="true";
-
-$WORKINGDIR=$CWD;
-$BLOCKNAME="$OUT\_$SHOT";
-$JOBNAME="$scriptname\_$OUT\_$SHOT";
-    
-if ($OUT_USE_SHOT)
-    {
-    $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP -shot $SHOT";
-    $FILES="$OUTDIR/$SHOT/$OUT.\@####\@.$EXT";
-    }
-else
-    {
-    $COMMAND="$CMD.pl -conf $CONF -f @#@ @#@ $SKIP";
-    $FILES="$OUTDIR/$OUT.\@####\@.$EXT";
-    }
-$HOSTNAME = `hostname -s`;
-chop $HOSTNAME;
-$USERNAME =  $ENV{'USER'}; 
-
-$JSON="{\"job\":{\"blocks\":[{\"command\":\"$COMMAND\",\"files\":[\"$FILES\"],\"flags\":1,\"frame_first\":$FSTART,\"frame_last\":$FEND,\"frames_inc\":1,\"frames_per_task\":$FPT,\"name\":\"$BLOCKNAME\",\"parser\":\"$PARSER\",\"service\":\"$SERVICE\",\"capacity\":$CAPACITY,\"working_directory\":\"$WORKINGDIR\"}],\"host_name\":\"$HOSTNAME\",\"name\":\"$JOBNAME\",\"offline\":$OFFLINE,\"user_name\":\"$USERNAME\"}}";
-
-print "$JSON\n";;
-$JSONFILE="./cgru.json";
-open( JSON , '>', $JSONFILE);
-print JSON $JSON;
-close JSON;
-
-$sendcmd="afcmd json send $JSONFILE";
-print "$sendcmd\n";
-system $sendcmd;
-$clean="rm $JSONFILE";
-print "$clean\n";
-system $clean;
 }

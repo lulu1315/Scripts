@@ -49,7 +49,7 @@ $STYLESCALE=1;
 $DO2PASS=1;
 $LOWDEF=512;
 $STYLE_LOWDEF="style.jpg";
-$STYLESCALELOWDEF=2;
+$STYLESCALELOWDEF=1;
 $DOCOLORTRANSFERT=1;
 #reindex result
 $DOINDEX=0;
@@ -514,7 +514,7 @@ if (-e "$OOUTDIR/$OUT" && !$FORCE)
    {print BOLD RED "sequence $OUT exists ... skipping\n";print RESET;}
 else
   {
-    print BOLD YELLOW "Output ----> $OUT [$NUMIMAGES images] Shot : $SHOT\n";print RESET;
+    print BOLD YELLOW "Output ----> $OUT [$NUMIMAGES images] [Shot: $SHOT]\n";print RESET;
     if (-e "$OOUTDIR") 
         {print "$OOUTDIR already exists\n";}
     else 
@@ -556,8 +556,10 @@ if ($CSV)
     chop $line;
     @line=split(/,/,$line);
     $SHOT=@line[0];
-    $STYLE=@line[1];
-    $STYLESCALE=@line[2];
+    if (@line[1] ne "") {$STYLE=@line[1];}
+    #$STYLE=@line[1];
+    if (@line[2] ne "") {$STYLESCALE=@line[2];}
+    #$STYLESCALE=@line[2];
     $FSTART=@line[3];
     $FEND=@line[4];
     $LENGTH=@line[5];   

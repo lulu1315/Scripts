@@ -56,8 +56,7 @@ if ($#ARGV == -1) {
 	print "usage: GRADING.pl \n";
 	print "-i imagein\n";
 	print "-odir dirout\n";
-    print "-num preset number\n";
-	print "-Tone      [TonePresets]      8x\n";
+    print "-num preset_number\n";
 	print "-all       [all presets]\n";
 	print "-force [0]\n";
 	exit;
@@ -225,6 +224,7 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 $userName =  $ENV{'USER'}; 
 if ($userName eq "dev18" || $userName eq "render")	#
   {
+  #$GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
   $GMIC="/usr/bin/gmic";
   }
 if ($userName eq "luluf")	#
@@ -266,6 +266,7 @@ if ($BWfilms || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,$num,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -310,6 +311,7 @@ if ($InstantConsumer || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,$num,0,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -354,6 +356,7 @@ if ($InstantPro || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,$num,0,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -398,6 +401,7 @@ if ($FujiXTransIII || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,$num,0,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -442,6 +446,7 @@ if ($NegativeColor || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,0,$num,0,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -486,6 +491,7 @@ if ($NegativeNew || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,0,0,$num,0,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -530,6 +536,7 @@ if ($NegativeOld || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,$num,0,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -574,6 +581,7 @@ if ($PrintFilm || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,$num,0,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -618,6 +626,7 @@ if ($SlideColor || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_simulate_film $CODE,0,0,0,0,0,0,0,0,$num,512,100,0,0,0,0,0,0,0,50,50 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -663,6 +672,7 @@ if ($AbigailGonzales || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,$num,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -707,6 +717,7 @@ if ($AlexJordan || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,$num,0,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -751,6 +762,7 @@ if ($CreativePack || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,$num,0,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -795,6 +807,7 @@ if ($EricEllerbrock || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,$num,0,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -839,6 +852,7 @@ if ($FilterGradeCinematic || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,$num,0,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -883,6 +897,7 @@ if ($JTSemple || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,$num,0,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -927,6 +942,7 @@ if ($LutifyMe || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,$num,0,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -971,6 +987,7 @@ if ($Moviz || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,$num,0,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1015,6 +1032,7 @@ if ($OhadPeretz || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,$num,0,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1059,6 +1077,7 @@ if ($ON1Photography || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,$num,0,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1103,6 +1122,7 @@ if ($PictureFx || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,$num,0,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1147,6 +1167,7 @@ if ($PIXLSUS || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,$num,0,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1191,6 +1212,7 @@ if ($RocketStock || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,$num,0,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1235,6 +1257,7 @@ if ($ShamoonAbbasi || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,$num,0,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1279,6 +1302,7 @@ if ($SmallHDMovieLook || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,$num,0,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1323,6 +1347,7 @@ if ($Others || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-fx_color_presets $CODE,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,$num,512,100,0,0,0,0,0,3,0,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 -remove[0]";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {
@@ -1366,6 +1391,7 @@ if ($Tone || $ALL)
       $OUT="$OUTDIR/$IMANAME\_$EXTENSION\_$num.$EXTOUT";
       $OP="-iain_tone_presets_p $num,100,0,0";
       $cmd="$GMIC -i $IN -$OP -o $OUT";
+      print $cmd;
       system $cmd;
       }
     else {

@@ -53,6 +53,7 @@ $SAMPLING=20;
 $VSCALE=1;
 $GAMMA=.9;
 $MOTIONTRESHOLD=.1; #do not draw if mag(motion) < motiontreshold
+$CSVFILE="./SHOTLIST.csv";
 
 if ($#ARGV == -1) {
 	print "usage: $scriptname.pl \n";
@@ -68,6 +69,7 @@ if ($#ARGV == -1) {
 	print "-s sampling\n";
 	print "-v vscale\n";
 	print "-g gamma\n";
+	print "-t motiontreshold\n";
 	print "-shot shotname\n";
 	print "-csv csv_file.csv\n";
 	exit;
@@ -206,6 +208,27 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     if ($FSTART eq "auto") {$FSTART = $min;}
     if ($FEND   eq "auto") {$FEND   = $max;}
     print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
     print ("final seq : $FSTART $FEND\n");
     }
     

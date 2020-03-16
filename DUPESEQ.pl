@@ -30,15 +30,15 @@ print BOLD BLUE "----------------------\n";print RESET;
 $pid=$$;
 
 #defaults
-$FSTART=1;
-$FEND=100;
+$FSTART="auto";
+$FEND="auto";
 $INDIR="$CWD/originales";
 $OUTDIR="$CWD/originales";
 $IN="ima";
 $ZEROPAD=1;
 $EXT="png";
 $VERBOSE=1;
-$TRESHOLD=100;
+$TRESHOLD=.2;
 $METHOD=2;
 $LOG1=" > /var/tmp/dupseq.log";
 $LOG2=" 2> /var/tmp/dupseq.log";
@@ -117,7 +117,35 @@ if ($userName eq "dev18")	#
 #$cmd="mkdir $OUTDIR";
 #print "$cmd\n";
 #system $cmd;
-
+#auto frames
+if ($FSTART eq "auto" || $FEND eq "auto")
+    {
+    $AUTODIR="$INDIR";
+    print ("frames $FSTART $FEND dir $AUTODIR\n");
+    opendir DIR, "$AUTODIR";
+    @images = grep { /$IN/ && /$EXT/ } readdir DIR;
+    closedir DIR;
+    $min=9999999;
+    $max=-1;
+    foreach $ima (@images) 
+        { 
+        #print ("$ima\n");
+        @tmp=split(/\./,$ima);
+        if ($#tmp >= 2)
+            {
+            $numframe=int($tmp[$#tmp-1]);
+            #print ("$numframe\n");
+            if ($numframe > $max) {$max = $numframe;}
+            if ($numframe < $min) {$min = $numframe;}
+            }
+        }
+    
+    if ($FSTART eq "auto") {$FSTART = $min;}
+    if ($FEND   eq "auto") {$FEND   = $max;}
+    print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
 $nodupecount=1;
 $minaverage=999999;
 $minaverageframe=$FSTART;

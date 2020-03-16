@@ -47,6 +47,7 @@ $EXTOUT="\$EXT";
 $VERBOSE=0;
 $OP="";
 $CSV=0;
+$CSVFILE="./SHOTLIST.csv";
 $LOG1=">/var/tmp/gmic.log";
 $LOG2="2>/var/tmp/gmic.log";
 #JSON
@@ -119,7 +120,7 @@ print AUTOCONF "\$OP=\"-luminance -gradient_norm -blur \$GRADIENTBLUR -div 255\"
 sub grainconf {
 print AUTOCONF "\$EXTIN=\"$EXTIN\"\;\n";
 print AUTOCONF "\$EXTOUT=\"$EXTOUT\"\;\n";
-print AUTOCONF "\$OP=\"-fx_emulate_grain 0,1,0.2,100,0,0,0,0,0,0,0,0\"\;\n";
+print AUTOCONF "\$OP=\"-fx_simulate_grain 0,1,0.5,100,0,0,0,0,0,0,0,0\"\;\n";
 }
 
 sub smoothconf {
@@ -382,7 +383,8 @@ for ($arg=0;$arg <= $#ARGV;$arg++)
 $userName =  $ENV{'USER'}; 
 if ($userName eq "lulu" || $userName eq "dev" || $userName eq "dev18" || $userName eq "render")	#
   {
-  $GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
+  #$GMIC="/shared/foss-18/gmic-2.8.3_pre/build/gmic";
+  $GMIC="/usr/bin/gmic";
   }
   
 if ($VERBOSE) {$LOG1="";$LOG2="";}
@@ -414,6 +416,27 @@ if ($FSTART eq "auto" || $FEND eq "auto")
     if ($FSTART eq "auto") {$FSTART = $min;}
     if ($FEND   eq "auto") {$FEND   = $max;}
     print ("auto  seq : $min $max\n");
+    print ("final seq : $FSTART $FEND\n");
+    }
+    
+if ($FSTART eq "csv" || $FEND eq "csv")
+    {
+    open (CSV , "$CSVFILE");
+    while ($line=<CSV>)
+        {
+        chop $line;
+        @line=split(/,/,$line);
+        $CSVSHOT=@line[0];
+        $CSVFSTART=@line[3];
+        $CSVFEND=@line[4];
+        if ($CSVSHOT eq $SHOT)
+            {
+            if ($FSTART eq "csv") {$FSTART = $CSVFSTART;}
+            if ($FEND   eq "csv") {$FEND   = $CSVFEND;}
+            last;
+            } 
+        }
+    print ("csv   seq : $CSVFSTART $CSVFEND\n");
     print ("final seq : $FSTART $FEND\n");
     }
     
@@ -450,6 +473,9 @@ else
 if (-e $OOUT && !$FORCE)
    {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
 else {
+  #verbose
+  $framesleft=($FEND-$i);
+  print BOLD YELLOW ("\nshot $SHOT : processing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
   #touch file
   $touchcmd="touch $OOUT";
   if ($VERBOSE) {print "$touchcmd\n";}

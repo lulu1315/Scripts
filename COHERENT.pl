@@ -155,9 +155,13 @@ print AUTOCONF confstr(ETFITERATIONS);
 print AUTOCONF "#Coherent Line Drawing (CLD)\n";
 print AUTOCONF confstr(CLDFDOGITERATION);
 print AUTOCONF confstr(CLDSIGMAM);
+print AUTOCONF "#sigma_m : degree of coherence\n";
 print AUTOCONF confstr(CLDSIGMAC);
+print AUTOCONF "#sigma_c : line width\n";
 print AUTOCONF confstr(CLDRHO);
+print AUTOCONF "#rho : noise\n";
 print AUTOCONF confstr(CLDTAU);
+print AUTOCONF "#tau : tresholding\n";
 print AUTOCONF "#postprocess\n";
 print AUTOCONF confstr(DILATE);
 print AUTOCONF confstr(EDGESMOOTH);
@@ -494,7 +498,7 @@ else {
   if (!-e $WORKDIR) {$cmd="mkdir $WORKDIR";system $cmd;}
   #
   $framesleft=($FEND-$i);
-  print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
+  print BOLD YELLOW ("\nprocessing frame $ii ($FSTART-$FEND) $framesleft frames to go .. [shot: $SHOT]\n");print RESET;
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#

@@ -258,28 +258,26 @@ if ($ZEROPAD == 5) {$ii=sprintf("%05d",$i);}
 #
 if ($IN_USE_SHOT)
     {
-    $IIN="$INDIR/$SHOT/$IN.$ii.$EXTIN";
+    $IIN="$INDIR/$SHOT/$IN.$ii.$EXT";
     }
 else
     {
-    $IIN="$INDIR/$IN.$ii.$EXTIN";
+    $IIN="$INDIR/$IN.$ii.$EXT";
     }
-    
+#
 if ($OUT_USE_SHOT)
     {
     $OOUTDIR="$OUTDIR/$SHOT";
-    $OOUT="$OOUTDIR/$OUT.$ii.$EXTOUT";
-    if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
-    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    $OOUT="$OOUTDIR/$OUT.$ii.$EXT";
     }
 else
     {
     $OOUTDIR="$OUTDIR";
-    $OOUT="$OUTDIR/$OUT.$ii.$EXTOUT";
-    if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
-    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+    $OOUT="$OUTDIR/$OUT.$ii.$EXT";
     }
-
+if (-e "$OOUTDIR") {verbose("$OOUTDIR already exists");}
+    else {$cmd="mkdir $OOUTDIR";system $cmd;}
+#    
 if (-e $OOUT && !$FORCE)
    {print BOLD RED "frame $OOUT exists ... skipping\n";print RESET;}
 else {
@@ -287,12 +285,15 @@ else {
   $touchcmd="touch $OOUT";
   if ($VERBOSE) {print "$touchcmd\n";}
   system $touchcmd;
-  $cmd="$GMIC -i $IIN $OP -o $OOUT $LOG2";
-  verbose($cmd);
+  #
+  $framesleft=($FEND-$i);
+  print BOLD YELLOW ("\nshot : $SHOT processing frame $ii ($FSTART-$FEND) $framesleft frames to go ..\n");print RESET;
   #-----------------------------#
   ($s1,$m1,$h1)=localtime(time);
   #-----------------------------#
-  system $cmd;
+  #do your shit here
+  $cmd="";
+  verbose($cmd);
   #-----------------------------#
   ($s2,$m2,$h2)=localtime(time);
   ($slat,$mlat,$hlat) = lapse($s1,$m1,$h1,$s2,$m2,$h2);
